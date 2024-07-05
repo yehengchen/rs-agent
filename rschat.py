@@ -348,9 +348,6 @@ if __name__ == '__main__':
     parser.add_argument('--load', type=str,
                         help='Image Captioning is basic models that is required. You can select from [ImageCaptioning,ObjectDetection,LandUseSegmentation,InstanceSegmentation,ObjectCounting,SceneClassification,EdgeDetection]',
                         default="ImageCaptioning_cuda:0,SceneClassification_cuda:0,ObjectDetection_cuda:0,LandUseSegmentation_cuda:0,InstanceSegmentation_cuda:0,ObjectCounting_cuda:0,EdgeDetection_cpu")
-    # parser.add_argument('--load', type=str,
-    #                     help='Image Captioning is basic models that is required. You can select from [ImageCaptioning,ObjectDetection,LandUseSegmentation,InstanceSegmentation,ObjectCounting,SceneClassification,EdgeDetection]',
-    #                     default="ImageCaptioning_cuda:0, SceneClassification_cuda:0, ObjectDetection_cuda:0, ObjectCounting_cuda:0, InstanceSegmentation_cuda:0")
     txt_given_en = 'You can input your question.(e.g. Extract ship from the image)\n'
     txt_given_cn = '请输入你的问题。（例如：从图片中提取船）\n'
     
@@ -360,7 +357,6 @@ if __name__ == '__main__':
     bot = RSChatGPT(gpt_name=args.gpt_name, load_dict=load_dict, openai_key=args.openai_key, proxy_url=args.proxy_url)
     bot.initialize(args.language)
     print('RSChat initialization done, you can now chat with RSChat~')
-    # bot.initialize(args.langu)
     txt='Get remote sensing image description.'
     state=bot.run_image(args.image_dir, args.language, [], txt)
 
@@ -380,9 +376,9 @@ if __name__ == '__main__':
             print('State is cleared.')
             bot = RSChatGPT(gpt_name=args.gpt_name, load_dict=load_dict, openai_key=args.openai_key, proxy_url=args.proxy_url)
             bot.initialize(args.language)
+
             print('RSChat initialization done, you can now chat with RSChat~')
             continue
-
 
         if txt == 'exit':
             print('Exiting the program.')
