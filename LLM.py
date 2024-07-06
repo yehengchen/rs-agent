@@ -45,7 +45,7 @@ class LLaMA3_LLM(LLM):
             max_new_tokens=1024, 
             do_sample=True,
             top_p=0.9, 
-            temperature=0.3, 
+            temperature=0.1, 
             repetition_penalty=1.1, 
             eos_token_id=self.tokenizer.encode('<|eot_id|>')[0],
             pad_token_id=self.tokenizer.encode('<|eot_id|>')[0]

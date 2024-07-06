@@ -110,11 +110,6 @@ class ObjectCounting:
                          "The input to this tool should be a comma separated string of two, "
                          "representing the image_path, the text description of the object to be counted")
     
-    @prompts(name="Count object",
-            description="useful when you want to count the number of the  object in the image. "
-                        "like: how many ships are there in the image? or count the number of bridges"
-                        "The input to this tool should be a comma separated string of two, "
-                        "representing the image_path, the text description of the object to be counted")
     def inference(self, inputs):
         # image_path, det_prompt = inputs.split(",")
         image_path, det_prompt = process_inputs(inputs)
@@ -223,7 +218,7 @@ class ImageCaptioning:
                          "The input to this tool should be a string, representing the image_path. ")
     def inference(self, image_path):
         captions = self.func.inference(image_path.split('\n')[0])
-        print(f"\nProcessed ImageCaptioning, Input Image: {image_path}, Output Text: {captions}")
+        # print(f"\nProcessed ImageCaptioning, Input Image: {image_path}, Output Text: {captions}")
         return captions
 
 
@@ -279,15 +274,20 @@ class RSChatGPT:
 
     def run_text(self, text, state): 
         try:
+            # text = count ship image/20240705_144247/b92f1e9c.png
             res = self.agent({"input": text.strip()})
             res['output'] = res['output'].replace("\\", "/")
+
         except ValueError as e:
             response = str(e)
             if not response.startswith("Could not parse LLM output: `"):
                 raise e
             
         response = re.sub('(image/[-\w]*.png)', lambda m: f'![](file={m.group(0)})*{m.group(0)}*', res['output'])
+        #print("################",response)
+
         state = state + [(text, response)]
+
         print(f"\nProcessed run_text, Input text: {text}\nCurrent state: {state}\n"
               f"Current Memory: {self.agent.memory.buffer}")
         return state
@@ -314,6 +314,7 @@ class RSChatGPT:
             print(f"======>Auto Renaming Image...")
         io.imsave(image_filename, img.astype(np.uint8))
         description = self.models['ImageCaptioning'].inference(image_filename)
+
         
         if language == 'English':
             Human_prompt = f' Provide a remote sensing image named {image_filename}. The description is: {description}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\".'
@@ -332,8 +333,7 @@ class RSChatGPT:
             print(f"\nProcessed run_image, Input image: {image_filename}\nCurrent state: {state}\nCurrent Memory: {self.agent.memory.buffer}")
         else:
             print(f"\n正在处理图像: {image_filename}\n当前状态: {state}\n当前记忆: {self.agent.memory.buffer}")
-        # print(f"\nProcessed run_image, Input image: {image_filename}\nCurrent state: {state}\n"
-        #       f"Current Memory: {self.agent.memory.buffer}")
+
         state = self.run_text(f'{txt} {image_filename} ', state)
         return state
 
@@ -348,6 +348,7 @@ if __name__ == '__main__':
     parser.add_argument('--load', type=str,
                         help='Image Captioning is basic models that is required. You can select from [ImageCaptioning,ObjectDetection,LandUseSegmentation,InstanceSegmentation,ObjectCounting,SceneClassification,EdgeDetection]',
                         default="ImageCaptioning_cuda:0,SceneClassification_cuda:0,ObjectDetection_cuda:0,LandUseSegmentation_cuda:0,InstanceSegmentation_cuda:0,ObjectCounting_cuda:0,EdgeDetection_cpu")
+
     txt_given_en = 'You can input your question.(e.g. Extract ship from the image)\n'
     txt_given_cn = '请输入你的问题。（例如：从图片中提取船）\n'
     

@@ -47,9 +47,9 @@ class YoloCounting:
                 i] == det_prompt[:-3]):
                 log_text += str((detection_classes == i).sum()) + ' ' + self.category[i] + ','
         if log_text != '':
-            log_text = log_text[:-1] + ' detected.'
+            log_text = 'Object Counting Tool：' + log_text[:-1] + ' detected.'
         else:
-            log_text = 'No ' + self.category[i] + ' detected.'
+            log_text = 'Object Counting Tool：' + 'No ' + self.category[i] + ' detected.'
 
         print(f"\nProcessed Object Counting, Input Image: {image_path}, Output text: {log_text}")
         return log_text
