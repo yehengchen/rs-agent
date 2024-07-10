@@ -1,14 +1,15 @@
 import torch
 from PIL import Image
 from transformers import  Blip2Processor, Blip2ForConditionalGeneration
+from transformers import  BlipProcessor, BlipForConditionalGeneration
 
-class BLIP2:
+class RS_BLIP:
     def __init__(self, device):
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        self.processor = Blip2Processor.from_pretrained("Salesforce/blip-image-captioning-base")
-        self.model = Blip2ForConditionalGeneration.from_pretrained(
-            "Salesforce/blip-image-captioning-base", torch_dtype=self.torch_dtype).to(self.device)
+        self.processor = BlipProcessor.from_pretrained("/home/mars/cyh_ws/LLM/models/rs-blip-gray")
+        self.model = BlipForConditionalGeneration.from_pretrained(
+            "/home/mars/cyh_ws/LLM/models/rs-blip-gray", torch_dtype=self.torch_dtype).to(self.device)
     def inference(self, image_path):
         inputs = self.processor(Image.open(image_path), return_tensors="pt").to(self.device, self.torch_dtype)
         out = self.model.generate(**inputs)

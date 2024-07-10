@@ -1,4 +1,6 @@
 import os
+import sys
+from colorama import Fore, Back, Style
 from LLM import LLaMA3_LLM
 import re
 import uuid
@@ -18,7 +20,7 @@ from langchain.chains import LLMChain
 import numpy as np
 from Prefix import RS_CHATGPT_PREFIX, RS_CHATGPT_FORMAT_INSTRUCTIONS, RS_CHATGPT_SUFFIX, RS_CHATGPT_PREFIX_CN, RS_CHATGPT_FORMAT_INSTRUCTIONS_CN, RS_CHATGPT_SUFFIX_CN
 from RStask import ImageEdgeFunction, CaptionFunction, LanduseFunction, DetectionFunction, CountingFuncnction, \
-    SceneFunction, InstanceFunction, CaptionFunction2
+    SceneFunction, InstanceFunction, CaptionFunction2, CaptionFunction3
 import cv2
 import time
 import torch
@@ -30,25 +32,24 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 # CHAIN_TYPE = "stuff"
 
 def process_inputs(inputs):
-    #x = inputs.split(',')
     pattern = r"(^image[^,]*),\s+([^\n]*)\n"
-    match = re.match(pattern, inputs)
+    match = re.search(pattern, inputs)
     if match:
         image_path = match.group(1)
         det_prompt = match.group(2)
     else:
         print('no match\n')
-    #image_path = x[0]
-    #det_prompt = x[1]
-    #l = len(x)
-    #det_prompt = ''
-    #for i in range(l - 1):
-    #    det_prompt = det_prompt + x[i + 1]
-    #    if i != l - 2:
-    #        det_prompt =det_prompt + ','
     return image_path, det_prompt
 
+# def tiff2png(filetiff_pathname, filepng_pathname):
+    
 
+
+def input_highlight(prompt):
+    sys.stdout.write(Fore.LIGHTBLUE_EX + Style.BRIGHT + prompt + Style.RESET_ALL)
+    sys.stdout.flush()
+    txt = input()
+    return txt
 
 def prompts(name, description):
     def decorator(func):
@@ -116,7 +117,6 @@ class ObjectCounting:
         log_text = self.func.inference(image_path, det_prompt)
         # cv2.putText(image_path, log_text, (640, 640))
         # show_image(image_path)
-
         return log_text
 
 
@@ -211,7 +211,7 @@ class ImageCaptioning:
     def __init__(self, device):
         print(f"Initializing ImageCaptioning to {device}")
         self.device = device
-        self.func = CaptionFunction(device)
+        self.func = CaptionFunction2(device)
 
     @prompts(name="Get Photo Description",
              description="useful when you want to know what is inside the photo. receives image_path as input. "
@@ -274,7 +274,6 @@ class RSChatGPT:
 
     def run_text(self, text, state): 
         try:
-            # text = count ship image/20240705_144247/b92f1e9c.png
             res = self.agent({"input": text.strip()})
             res['output'] = res['output'].replace("\\", "/")
 
@@ -284,8 +283,6 @@ class RSChatGPT:
                 raise e
             
         response = re.sub('(image/[-\w]*.png)', lambda m: f'![](file={m.group(0)})*{m.group(0)}*', res['output'])
-        #print("################",response)
-
         state = state + [(text, response)]
 
         print(f"\nProcessed run_text, Input text: {text}\nCurrent state: {state}\n"
@@ -314,7 +311,7 @@ class RSChatGPT:
             print(f"======>Auto Renaming Image...")
         io.imsave(image_filename, img.astype(np.uint8))
         description = self.models['ImageCaptioning'].inference(image_filename)
-
+    
         
         if language == 'English':
             Human_prompt = f' Provide a remote sensing image named {image_filename}. The description is: {description}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\".'
@@ -322,8 +319,7 @@ class RSChatGPT:
         else:
             Human_prompt = f' 提供一张遥感图片名为 {image_filename} 。它的英文描述是: {description}。 这些信息帮助你理解这个图像，但是你应该使用工具来完成以下的任务，而不是直接从英文描述中想象。 如果你明白了, 说 \"收到\". \n'
             AI_prompt = "收到。"
-        # Human_prompt = f' Provide a remote sensing image named {image_filename}. The description is: {description}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\".'
-        # AI_prompt = "Received."
+
         self.memory.chat_memory.add_user_message(Human_prompt)
         self.memory.chat_memory.add_ai_message(AI_prompt)
 
@@ -349,7 +345,7 @@ if __name__ == '__main__':
                         help='Image Captioning is basic models that is required. You can select from [ImageCaptioning,ObjectDetection,LandUseSegmentation,InstanceSegmentation,ObjectCounting,SceneClassification,EdgeDetection]',
                         default="ImageCaptioning_cuda:0,SceneClassification_cuda:0,ObjectDetection_cuda:0,LandUseSegmentation_cuda:0,InstanceSegmentation_cuda:0,ObjectCounting_cuda:0,EdgeDetection_cpu")
 
-    txt_given_en = 'You can input your question.(e.g. Extract ship from the image)\n'
+    txt_given_en = 'Please input your question.(e.g. Extract ship from the image)\n'
     txt_given_cn = '请输入你的问题。（例如：从图片中提取船）\n'
     
     args = parser.parse_args()
@@ -358,14 +354,23 @@ if __name__ == '__main__':
     bot = RSChatGPT(gpt_name=args.gpt_name, load_dict=load_dict, openai_key=args.openai_key, proxy_url=args.proxy_url)
     bot.initialize(args.language)
     print('RSChat initialization done, you can now chat with RSChat~')
-    txt='Get remote sensing image description.'
-    state=bot.run_image(args.image_dir, args.language, [], txt)
-
+    start_time = time.time()  # 获取开始时间
+    txt = 'Get remote sensing image description.'
+    state = bot.run_image(args.image_dir, args.language, [], txt)
+    end_time = time.time()  # 获取结束时间
+    elapsed_time = end_time - start_time  # 计算耗时
+    print("程序运行耗时：", elapsed_time, "秒")
+    
     while True:
         if args.language == 'English':
-            txt = input(txt_given_en)
+            txt_given_en = "input your question.(e.g. Extract ship from the image)\n"
+            txt = input_highlight(txt_given_en)
+            # txt = input(txt_given_en)
         else:
-            txt = input(txt_given_cn)
+            txt_given_en = "请输入您的问题。（例如：从图片中提取船）\n"
+            txt = input_highlight(txt_given_cn)
+
+            # txt = input(txt_given_cn)
             
         # txt = input('You can input your question.(e.g. Extract ship from the image)\n')
         if txt == '':
@@ -384,5 +389,9 @@ if __name__ == '__main__':
         if txt == 'exit':
             print('Exiting the program.')
             break    
-
+        
+        start_time = time.time()  # 获取开始时间
         state = bot.run_image(args.image_dir, args.language, state, txt)
+        end_time = time.time()  # 获取结束时间
+        elapsed_time = end_time - start_time  # 计算耗时
+        print("程序运行耗时：", elapsed_time, "秒")

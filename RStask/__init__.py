@@ -1,6 +1,7 @@
 from RStask.EdgeDetection.Canny import Image2Canny as ImageEdgeFunction
 from RStask.ImageCaptioning.blip import BLIP as CaptionFunction
-from RStask.ImageCaptioning.blip import BLIP2 as CaptionFunction2
+from RStask.ImageCaptioning.rsblip import RS_BLIP as CaptionFunction2
+from RStask.ImageCaptioning.rsclip import RS_CLIP as CaptionFunction3
 from RStask.LanduseSegmentation.seg_hrnet import HRNet48 as LanduseFunction
 from RStask.ObjectCounting.Yolocounting import YoloCounting as CountingFuncnction
 from RStask.ObjectDetection.YOLOv5 import YoloDetection as DetectionFunction

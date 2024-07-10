@@ -23,9 +23,9 @@ class BLIP2:
     def __init__(self, device):
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        self.processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b-coco")
+        self.processor = Blip2Processor.from_pretrained("ashnrk/blip-rsicd")
         self.model = Blip2ForConditionalGeneration.from_pretrained(
-            "Salesforce/blip2-opt-2.7b-coco", torch_dtype=self.torch_dtype).to(self.device)
+            "ashnrk/blip-rsicd", torch_dtype=self.torch_dtype).to(self.device)
     def inference(self, image_path):
         inputs = self.processor(Image.open(image_path), return_tensors="pt").to(self.device, self.torch_dtype)
         out = self.model.generate(**inputs)
