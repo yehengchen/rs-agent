@@ -89,6 +89,8 @@ class Ensemble(nn.ModuleList):
 
 def attempt_load(weights, map_location=None, inplace=True, fuse=True):
     from RStask.ObjectDetection.models.yolo import Detect, Model
+    # from RStask.ObjectDetection.models.yolov5s import Detect, yolov5s
+
 
     # Loads an ensemble of models weights=[a,b,c] or a single model weights=[a] or weights=a
     model = Ensemble()
@@ -101,6 +103,8 @@ def attempt_load(weights, map_location=None, inplace=True, fuse=True):
     for m in model.modules():
         t = type(m)
         if t in (nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Model):
+        # if t in (nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, yolov5s):
+
             m.inplace = inplace  # torch 1.7.0 compatibility
             if t is Detect:
                 if not isinstance(m.anchor_grid, list):  # new Detect Layer compatibility

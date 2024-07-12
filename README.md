@@ -8,7 +8,10 @@ pip install -r requirements.txt
 
 ### Run
 ```
+# Suported language: English, Chinese
+
 python rschat.py --image_dir ./image/rs-ship.jpg --language English
+
 ```
 
 ### Supported Function

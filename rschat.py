@@ -16,10 +16,11 @@ from langchain.chains.conversation.memory import ConversationBufferMemory, Conve
 
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from RStask.ObjectDetection.models.yolov5s import *
 
 import numpy as np
 from Prefix import RS_CHATGPT_PREFIX, RS_CHATGPT_FORMAT_INSTRUCTIONS, RS_CHATGPT_SUFFIX, RS_CHATGPT_PREFIX_CN, RS_CHATGPT_FORMAT_INSTRUCTIONS_CN, RS_CHATGPT_SUFFIX_CN
-from RStask import ImageEdgeFunction, CaptionFunction, LanduseFunction, DetectionFunction, CountingFuncnction, \
+from RStask import ImageEdgeFunction, CaptionFunction, LanduseFunction, DetectionFunction, DetectionFunction2, CountingFuncnction, \
     SceneFunction, InstanceFunction, CaptionFunction2, CaptionFunction3
 import cv2
 import time
@@ -185,7 +186,7 @@ class LandUseSegmentation:
 
 class ObjectDetection:
     def __init__(self, device):
-        self.func = DetectionFunction(device)
+        self.func = DetectionFunction2(device)
 
     @prompts(name="Detect the given object",
              description="useful when you only want to detect the bounding box of the certain objects in the picture according to the given text."
@@ -359,7 +360,9 @@ if __name__ == '__main__':
     state = bot.run_image(args.image_dir, args.language, [], txt)
     end_time = time.time()  # 获取结束时间
     elapsed_time = end_time - start_time  # 计算耗时
+    
     print("程序运行耗时：", elapsed_time, "秒")
+
     
     while True:
         if args.language == 'English':

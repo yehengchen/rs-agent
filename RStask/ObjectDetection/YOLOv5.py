@@ -9,9 +9,9 @@ class YoloDetection:
     def __init__(self, device):
         self.device = device
         try:
-            self.model = DetectMultiBackend('./checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False, fp16=False)
+            self.model = DetectMultiBackend('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False, fp16=False)
         except:
-            self.model = DetectMultiBackend('/data/haonan.guo/RSChatGPT/checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False,fp16=False)
+            self.model = DetectMultiBackend('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False,fp16=False)
         self.category = ['small vehicle', 'large vehicle', 'plane', 'storage tank', 'ship', 'harbor',
                          'ground track field',
                          'soccer ball field', 'tennis court', 'swimming pool', 'baseball diamond', 'roundabout',

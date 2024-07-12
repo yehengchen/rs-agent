@@ -5,5 +5,6 @@ from RStask.ImageCaptioning.rsclip import RS_CLIP as CaptionFunction3
 from RStask.LanduseSegmentation.seg_hrnet import HRNet48 as LanduseFunction
 from RStask.ObjectCounting.Yolocounting import YoloCounting as CountingFuncnction
 from RStask.ObjectDetection.YOLOv5 import YoloDetection as DetectionFunction
+from RStask.ObjectDetection.YOLOv5_ship import YoloDetection_ship as DetectionFunction2
 from RStask.SceneClassification.ResNetScene import ResNetAID as SceneFunction
 from RStask.InstanceSegmentation.SwinUpper import SwinInstance as InstanceFunction
