@@ -1,4 +1,6 @@
 image/
 checkpoints/
 backup/
+**/__pycache__
+**/.DS_Store
 .env
