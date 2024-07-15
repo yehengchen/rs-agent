@@ -24,7 +24,7 @@ python rschat.py --image_dir ./image/rs-ship.jpg --language English
   	Update the image captioning model to RS_BLIP, model has been finetuned on the rsicd dataset.
 
 - [2024.07.15]: 
-	Add PAN image object detection and counting support.
+	Add PAN image object detection and counting support.``` {--img_ch} 1 for PAN/Gray, 3 for MS/RGB```
 
 ### Supported Model
 | Model | Hugging Face  | github     |
