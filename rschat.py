@@ -21,7 +21,7 @@ from RStask.ObjectDetection.models.yolov5s import *
 import numpy as np
 from Prefix import RS_CHATGPT_PREFIX, RS_CHATGPT_FORMAT_INSTRUCTIONS, RS_CHATGPT_SUFFIX, RS_CHATGPT_PREFIX_CN, RS_CHATGPT_FORMAT_INSTRUCTIONS_CN, RS_CHATGPT_SUFFIX_CN
 from RStask import ImageEdgeFunction, CaptionFunction, LanduseFunction, DetectionFunction, DetectionFunction2, CountingFuncnction, \
-    SceneFunction, InstanceFunction, CaptionFunction2, CaptionFunction3
+    CountingFuncnction2, SceneFunction, InstanceFunction, CaptionFunction2, CaptionFunction3
 import cv2
 import time
 import torch
@@ -42,8 +42,9 @@ def process_inputs(inputs):
         print('no match\n')
     return image_path, det_prompt
 
-# def tiff2png(filetiff_pathname, filepng_pathname):
-    
+def replace_all_numbers(input_string, replacement):
+    result = re.sub(r'\d+', replacement, input_string)
+    return result
 
 
 def input_highlight(prompt):
@@ -57,7 +58,6 @@ def prompts(name, description):
         func.name = name
         func.description = description
         return func
-
     return decorator
 
 
@@ -104,11 +104,14 @@ class EdgeDetection:
 
 class ObjectCounting:
     def __init__(self, device):
-        self.func = CountingFuncnction(device)
+        if image_type == '1':
+            self.func = CountingFuncnction2(device)
+        else:
+            self.func = CountingFuncnction(device)
 
     @prompts(name="Count object",
-             description="useful when you want to count the number of the  object in the image. "
-                         "like: how many ships are there in the image? or count the number of bridges"
+             description="useful when you want to count the number of the object in the image. "
+                         "like: how many ships are there in the image? or count the number of ships"
                          "The input to this tool should be a comma separated string of two, "
                          "representing the image_path, the text description of the object to be counted")
     
@@ -186,13 +189,16 @@ class LandUseSegmentation:
 
 class ObjectDetection:
     def __init__(self, device):
-        self.func = DetectionFunction2(device)
+        if image_type == '1':
+            self.func = DetectionFunction2(device)
+        else:
+            self.func = DetectionFunction(device)
 
     @prompts(name="Detect the given object",
              description="useful when you only want to detect the bounding box of the certain objects in the picture according to the given text."
                          "like: detect the plane, or can you locate an object for me."
                          "The input to this tool should be a comma separated string of two, "
-                         "representing the image_path, the text description of the object to be found")
+                         "representing the image_path, the text description of the object to be found")         
     def inference(self, inputs):
         # image_path, det_prompt = inputs.split(",")
         image_path, det_prompt = process_inputs(inputs)
@@ -284,6 +290,11 @@ class RSChatGPT:
                 raise e
             
         response = re.sub('(image/[-\w]*.png)', lambda m: f'![](file={m.group(0)})*{m.group(0)}*', res['output'])
+        
+        # count_num = 
+
+        # response = replace_all_numbers(response, count_num)
+
         state = state + [(text, response)]
 
         print(f"\nProcessed run_text, Input text: {text}\nCurrent state: {state}\n"
@@ -292,19 +303,22 @@ class RSChatGPT:
 
     def run_image(self, image_dir, language, state, txt=None):
         folder_name = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-        folder_path = os.path.join('image', folder_name)
+        folder_path = os.path.join('image', folder_name) 
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
+        
         image_filename = os.path.join(folder_path, f"{str(uuid.uuid4())[:8]}.png")
         img = io.imread(image_dir)
         width, height = img.shape[1],img.shape[0]
         ratio = min(4096 / width, 4096 / height)
-        if ratio<1:
+
+        if ratio < 1:
             width_new, height_new = (round(width * ratio), round(height * ratio))
         else:
-            width_new, height_new =width,height
+            width_new, height_new =width,height 
         width_new = int(np.round(width_new / 64.0)) * 64
         height_new = int(np.round(height_new / 64.0)) * 64
+        
         if width_new!=width or height_new!=height:
             img = cv2.resize(img,(width_new, height_new))
             print(f"======>Auto Resizing Image from {height,width} to {height_new,width_new}...")
@@ -312,7 +326,6 @@ class RSChatGPT:
             print(f"======>Auto Renaming Image...")
         io.imsave(image_filename, img.astype(np.uint8))
         description = self.models['ImageCaptioning'].inference(image_filename)
-    
         
         if language == 'English':
             Human_prompt = f' Provide a remote sensing image named {image_filename}. The description is: {description}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\".'
@@ -323,7 +336,6 @@ class RSChatGPT:
 
         self.memory.chat_memory.add_user_message(Human_prompt)
         self.memory.chat_memory.add_ai_message(AI_prompt)
-
         state = state + [(f"![](file={image_filename})*{image_filename}*", AI_prompt)]
         
         if language == 'English':
@@ -341,20 +353,22 @@ if __name__ == '__main__':
     parser.add_argument('--image_dir', type=str, required=False)
     parser.add_argument('--gpt_name', type=str, default="gpt-3.5-turbo",choices=['gpt-3.5-turbo-1106','gpt-3.5-turbo','gpt-4','gpt-4-0125-preview','gpt-4-turbo-preview','gpt-4-1106-preview'])
     parser.add_argument('--proxy_url', type=str, default=None)
-    parser.add_argument('--language', type=str, default='English',choices=['English','Chinese'])
+    parser.add_argument('--language', type=str, default='Chinese',choices=['English','Chinese'])
+    parser.add_argument('--img_ch', type=str, default='1',choices=['1','3'], help='1 for PAN/Gray, 3 for MS/RGB')
     parser.add_argument('--load', type=str,
                         help='Image Captioning is basic models that is required. You can select from [ImageCaptioning,ObjectDetection,LandUseSegmentation,InstanceSegmentation,ObjectCounting,SceneClassification,EdgeDetection]',
                         default="ImageCaptioning_cuda:0,SceneClassification_cuda:0,ObjectDetection_cuda:0,LandUseSegmentation_cuda:0,InstanceSegmentation_cuda:0,ObjectCounting_cuda:0,EdgeDetection_cpu")
 
-    txt_given_en = 'Please input your question.(e.g. Extract ship from the image)\n'
-    txt_given_cn = '请输入你的问题。（例如：从图片中提取船）\n'
-    
     args = parser.parse_args()
+    image_type = args.img_ch
+
     state = []
     load_dict = {e.split('_')[0].strip(): e.split('_')[1].strip() for e in args.load.split(',')}
     bot = RSChatGPT(gpt_name=args.gpt_name, load_dict=load_dict, openai_key=args.openai_key, proxy_url=args.proxy_url)
     bot.initialize(args.language)
     print('RSChat initialization done, you can now chat with RSChat~')
+    
+
     start_time = time.time()  # 获取开始时间
     txt = 'Get remote sensing image description.'
     state = bot.run_image(args.image_dir, args.language, [], txt)
@@ -363,7 +377,9 @@ if __name__ == '__main__':
     
     print("程序运行耗时：", elapsed_time, "秒")
 
-    
+    txt_given_en = 'Please input your question.(e.g. Extract ship from the image)\n'
+    txt_given_cn = '请输入你的问题。（例如：从图片中提取船）\n'
+
     while True:
         if args.language == 'English':
             txt_given_en = "input your question.(e.g. Extract ship from the image)\n"
@@ -398,3 +414,4 @@ if __name__ == '__main__':
         end_time = time.time()  # 获取结束时间
         elapsed_time = end_time - start_time  # 计算耗时
         print("程序运行耗时：", elapsed_time, "秒")
+        # break

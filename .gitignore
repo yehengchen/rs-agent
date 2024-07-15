@@ -3,4 +3,5 @@ checkpoints/
 backup/
 **/__pycache__
 **/.DS_Store
+tif_process.py
 .env

@@ -11,8 +11,25 @@ pip install -r requirements.txt
 # Suported language: English, Chinese
 
 python rschat.py --image_dir ./image/rs-ship.jpg --language English
-
 ```
+
+### Updates
+- [2024.07.05]: 
+	Add Llama3-8b-Instruct support, supporting English.
+  
+- [2024.07.06]: 
+	Update the LLM model to Llama3-8b-Chinese, base ,supporting EN/CH.
+
+- [2024.07.10]: 
+  	Update the image captioning model to RS_BLIP, model has been finetuned on the rsicd dataset.
+
+- [2024.07.15]: 
+	Add PAN image object detection and counting support.
+
+### Supported Model
+| Model | Hugging Face  | github     |
+| :--------: | :--------: | :--------: |
+|Llama-3-8B-Instruct | [meta-llama/Meta-Llama-3-8B-Instruct](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct) | [llama3](https://github.com/meta-llama/llama3) |
 
 ### Supported Function
 | Function |    Description  | Method | Pretrain Dataset     | Model Weights     |

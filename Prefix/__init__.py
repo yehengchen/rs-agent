@@ -4,13 +4,13 @@ Remote Sensing Chat can process and understand large amounts of  remote sensing 
 
 Human may provide new remote sensing images to Remote Sensing Chat with a description. The description helps Remote Sensing Chat to understand this image, but Remote Sensing Chat should use tools to finish following tasks, rather than directly imagine from the description.
 
-Overall, Remote Sensing Chat is a powerful visual dialogue assistant tool that can help with a wide range of remote sensing tasks and provide valuable insights and information on a wide range of remote sensing applicatinos. 
+Overall, Remote Sensing Chat is a powerful visual dialogue assistant tool that can help with a wide range of remote sensing tasks and provide valuable insights and information on a wide range of remote sensing applications. 
 
 
 TOOLS:
 ------
 
-Remote Sensing Chat  has access to the following tools:"""
+Remote Sensing Chat has access to the following tools:"""
 
 RS_CHATGPT_FORMAT_INSTRUCTIONS = """
 
@@ -27,7 +27,7 @@ To use a tool, you MUST use the following format:
 Thought: Do I need to use a tool? Yes
 Action: the action to take, should be one of [{tool_names}]
 Action Input: the input to the action
-Observation: the result of the action
+Observation: the result of the action, MUST not contain any Specific numbers
 ```
 """
 
