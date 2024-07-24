@@ -433,13 +433,14 @@ if __name__ == '__main__':
         print(f'\033[1m\033[36m[Your question]: {txt}\033[0m')
 
         state = bot.run_image(args.image_dir, args.language, [], txt)
+
         if state:
-            final_response = state[-1][-1]
-            response_num = replace_all_numbers(final_response, count_num) 
-        if count_num != "":
-            print(f'\033[1m\033[36m[Final Response]: {response_num}\033[0m')
-        else:
-            print(f'\033[1m\033[36m[Final Response]: {final_response}\033[0m')
+            final_response = state[-1][-1] 
+            if count_num != None:
+                response_num = replace_all_numbers(final_response, count_num) 
+                print(f'\033[1m\033[36m[Final Response]: {response_num}\033[0m')
+            else:
+                print(f'\033[1m\033[36m[Final Response]: {final_response}\033[0m')
 
         end_time = time.time()  # 获取结束时间
         elapsed_time = end_time - start_time  # 计算耗时
