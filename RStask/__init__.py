@@ -1,11 +1,12 @@
 from RStask.EdgeDetection.Canny import Image2Canny as ImageEdgeFunction
 from RStask.ImageCaptioning.blip import BLIP as CaptionFunction
-from RStask.ImageCaptioning.rsblip import RS_BLIP as CaptionFunction2
+from RStask.ImageCaptioning.rsblip import RS_BLIP as CaptionFunction_RS_BLIP
 from RStask.ImageCaptioning.rsclip import RS_CLIP as CaptionFunction3
 from RStask.LanduseSegmentation.seg_hrnet import HRNet48 as LanduseFunction
+from RStask.LanduseSegmentation.seg_unet import Unet_seg as LanduseFunction_Unet
 from RStask.ObjectCounting.Yolocounting import YoloCounting as CountingFuncnction
-from RStask.ObjectCounting.Yolocounting_ship import YoloCounting_ship as CountingFuncnction2
+from RStask.ObjectCounting.Yolocounting_ship import YoloCounting_ship as CountingFuncnction_ship
 from RStask.ObjectDetection.YOLOv5 import YoloDetection as DetectionFunction
-from RStask.ObjectDetection.YOLOv5_ship import YoloDetection_ship as DetectionFunction2
+from RStask.ObjectDetection.YOLOv5_ship import YoloDetection_ship as DetectionFunction_ship
 from RStask.SceneClassification.ResNetScene import ResNetAID as SceneFunction
 from RStask.InstanceSegmentation.SwinUpper import SwinInstance as InstanceFunction

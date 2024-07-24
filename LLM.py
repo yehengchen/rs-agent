@@ -14,7 +14,7 @@ class LLaMA3_LLM(LLM):
 
         super().__init__()
         print("正在从本地加载模型...")
-        self.tokenizer = AutoTokenizer.from_pretrained(mode_name_or_path, use_fast=False)
+        self.tokenizer = AutoTokenizer.from_pretrained(mode_name_or_path, use_fast=False, padding_side='left')
         self.model = AutoModelForCausalLM.from_pretrained(mode_name_or_path, torch_dtype=torch.bfloat16, device_map="auto")
         self.tokenizer.pad_token = self.tokenizer.eos_token
         print("完成本地模型的加载")
@@ -42,7 +42,7 @@ class LLaMA3_LLM(LLM):
         input_ids = self.tokenizer.encode(input_str, add_special_tokens=False, return_tensors='pt').to(self.model.device)
         outputs = self.model.generate(
             input_ids=input_ids, 
-            max_new_tokens=1024, 
+            max_new_tokens=2048, 
             do_sample=True,
             top_p=0.9, 
             temperature=0.1, 

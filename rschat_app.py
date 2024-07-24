@@ -36,10 +36,6 @@ os.makedirs('image', exist_ok=True)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
-
-global img_ch
-img_ch = '3'
-
 def process_inputs(inputs):
     pattern = r"(^image[^,]*),\s+([^\n]*)\n"
     match = re.search(pattern, inputs)
@@ -233,7 +229,7 @@ class ObjectDetection:
             self.func = DetectionFunction_ship(device)
         else:
             self.func = DetectionFunction(device)
-             
+
     @prompts(name="Detect the given object",
              description="useful when you only want to detect the bounding box of the certain objects in the picture according to the given text."
                          "like: detect the ship, or can you locate an object for me."
@@ -421,7 +417,7 @@ if __name__ == '__main__':
 
         # txt = 'Get remote sensing image description.'
 
-        txt = 'How many ships are there in port of Singapore? Please count the ships'
+        txt = 'How many ships are there in port of Singapore? Please detect the ships'
         # txt = 'Are there ships at Dubai Port? Please give the location of the ship'
 
         # txt = 'Is there ​​farmland near by Zhejiang Lab? Please draw the area of ​​farmland'

@@ -4,4 +4,6 @@ backup/
 **/__pycache__
 **/.DS_Store
 tif_process.py
+run_farmland.sh
+run_ship.sh
 .env

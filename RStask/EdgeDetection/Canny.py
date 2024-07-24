@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 class Image2Canny:
     def __init__(self):
-        print("Initializing Image2Canny")
+        # print("Initializing Image2Canny")
         self.low_threshold = 100
         self.high_threshold = 200
 

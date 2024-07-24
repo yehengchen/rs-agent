@@ -3,7 +3,7 @@ from skimage import io
 
 class ResNetAID:
     def __init__(self, device=None):
-        print("Initializing SceneClassification")
+        # print("Initializing SceneClassification")
         from torchvision import models
         self.model = models.resnet34(pretrained=False, num_classes=30)
         self.device = device

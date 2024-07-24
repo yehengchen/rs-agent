@@ -27,8 +27,7 @@ To use a tool, you MUST use the following format:
 Thought: Do I need to use a tool? Yes
 Action: the action to take, should be one of [{tool_names}]
 Action Input: the input to the action
-Observation: the result of the action, MUST not contain any Specific numbers
-```
+Observation: the result of the action, the results MUST contain location name
 """
 
 RS_CHATGPT_SUFFIX = """You are very strict to the filename correctness and will never fake a file name if it does not exist.
@@ -41,7 +40,7 @@ Previous conversation history:
 
 New input: {input}
 Since Remote Sensing Chat is a text language model, Remote Sensing Chat must use tools to observe remote sensing images rather than imagination.
-The thoughts and observations are only visible for Remote Sensing Chat, Remote Sensing Chat should remember to repeat important information in the final response for Human. 
+The thoughts and observations are only visible for Remote Sensing Chat, Remote Sensing Chat should remember to repeat important information in the final response for Human
 Tools should not be used more than 2 times.
 Thought: Do I need to use a tool? {agent_scratchpad} Let's think step by step.
 

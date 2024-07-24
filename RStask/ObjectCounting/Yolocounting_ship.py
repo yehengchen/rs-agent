@@ -147,15 +147,19 @@ class YoloCounting_ship:
         # self.device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
         self.category = ["ship"]
 
+        # self.category = ['golffield', 'Expressway-toll-station', 'vehicle', 'trainstation', 'chimney', 'storagetank', 'ship',
+        #        'harbor', 'airplane', 'groundtrackfield', 'tenniscourt', 'dam', 'basketball court',
+        #        'Expressway-Service-area', 'stadium', 'airport', 'baseballfield', 'bridge', 'windmill', 'overpass']
+        
         self.det_model = yolov5s(num_classes=len(self.category), slice=False)
-        # self.det_model.load_state_dict(torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/yolov5_best.pt')['model'].state_dict())
         self.det_model.load_state_dict(torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/v5s_ship.pt')['model'].state_dict())
+        # self.det_model.load_state_dict(torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/yolov5s-dior.pt')['model'].state_dict())
         self.det_model.float().fuse().eval().to(self.device)
 
     def inference(self, image_path, det_prompt):
 
         det_img = torch.from_numpy(io.imread(image_path))
-        print('det_img_shape',det_img.shape)
+        # print('det_img_shape',det_img.shape)
         
         h, w = det_img.shape
         with torch.no_grad():

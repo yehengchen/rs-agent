@@ -26,6 +26,11 @@ python rschat.py --image_dir ./image/rs-ship.jpg --language English
 - [2024.07.15]: 
 	Add PAN image object detection and counting support.``` {--img_ch} 1 for PAN/Gray, 3 for MS/RGB```
 
+- [2024.07.17]: 
+	Add Landuse Segmentation (Unet) support.
+
+
+
 ### Supported Model
 | Model | Hugging Face  | github     |
 | :--------: | :--------: | :--------: |

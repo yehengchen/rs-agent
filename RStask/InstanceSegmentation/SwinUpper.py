@@ -5,7 +5,7 @@ from PIL import Image
 import numpy as np
 class SwinInstance:
     def __init__(self, device):
-        print("Initializing InstanceSegmentation")
+        # print("Initializing InstanceSegmentation")
         self.model = SwinUPer()
         self.device = device
         try:
