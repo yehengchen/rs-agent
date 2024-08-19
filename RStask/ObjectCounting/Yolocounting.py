@@ -16,6 +16,11 @@ class YoloCounting:
                          'ground track field',
                          'soccer ball field', 'tennis court', 'swimming pool', 'baseball diamond', 'roundabout',
                          'basketball court', 'bridge', 'helicopter']
+        
+        # self.category = ['小型车辆', '大型车辆', '飞机', '存储罐', '船', '港口',
+        #                 '地面轨道场',
+        #                 '足球场', '网球场', '游泳池', '棒球场', '环岛',
+        #                 '篮球场', '桥', '直升机']
 
 
     def inference(self, image_path, det_prompt):

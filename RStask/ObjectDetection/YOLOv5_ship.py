@@ -226,4 +226,61 @@ class YoloDetection_ship:
                 f.write(str(list(boxes[i,:4]))[1:-1]+', '+self.category[boxes[i][-1]]+'\n')
         # cv2.imshow("Object detection", im)
 
-   
+    def inference_app(self, image_path ,updated_image_path):
+        image_raw = io.imread(image_path)
+        height, width = image_raw.shape[:2]
+        ratio = min(4096 / width, 4096 / height)
+
+        if ratio < 1:
+            width_new, height_new = (round(width * ratio), round(height * ratio))
+        else:
+            width_new, height_new =width,height
+            width_new = int(np.round(width_new / 64.0)) * 64
+            height_new = int(np.round(height_new / 64.0)) * 64
+        
+        if width_new!=width or height_new!=height:
+            image_raw = cv2.resize(image_raw,(width_new, height_new))
+            print(f"======>Auto Resizing Image from {height,width} to {height_new,width_new}...")
+        else:
+            print(f"======>Auto Renaming Image...")
+
+        image = torch.from_numpy(image_raw)
+        image = image.permute(2, 0, 1).unsqueeze(0) / 255.0
+        h, w = image.shape
+        print(image.shape)
+        with torch.no_grad():
+            det_img_tensor = preprocess(image, self.device)
+            det_output, _ = self.det_model(det_img_tensor)
+            det_pred = non_max_suppression(det_output, conf_thres=0.1, iou_thres=0.2, labels=[], multi_label=True,
+                                             agnostic=False)[0]
+            detections = det_pred.clone()
+            detections = detections[det_pred[:, 4] > 0.75]
+            detections_box = (detections[:, :4] / (640 / h)).int().cpu().numpy()
+            detection_classes = detections[:, 5].int().cpu().numpy()
+        if len(detection_classes) > 0:
+            det = np.zeros((h, w, 3))
+            for i in range(len(detections_box)):
+                x1, y1, x2, y2 = detections_box[i]
+                det[y1:y2, x1:x2] = detection_classes[i] + 1
+
+            rs_viz = self.visualize_app(image_path, updated_image_path, detections)
+            print(
+                f"\nProcessed Object Detection, Input Image: {image_path}, Output Bounding box: {updated_image_path},Output text: {'Object Detection Done'}")
+            return rs_viz
+
+    
+    def visualize_app(self,image_path, newpic_path, detections):
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        im = io.imread(image_path)
+        boxes = detections.int().cpu().numpy()
+        for i in range(len(boxes)):
+            cv2.rectangle(im, (boxes[i][0], boxes[i][1]), (boxes[i][2], boxes[i][3]), (0, 255, 255), 2)
+            cv2.rectangle(im, (boxes[i][0], boxes[i][1] - 15), (boxes[i][0] + 45, boxes[i][1] - 2), (0, 0, 255),thickness=-1)
+            cv2.putText(im, self.category[boxes[i][-1]], (boxes[i][0], boxes[i][1] - 2), font, 0.5, (255, 255, 255),1)
+        viz = im
+        # Image.fromarray(im.astype(np.uint8)).save(newpic_path)
+        # with open(newpic_path[:-4]+'.txt','w') as f:
+        #     for i in range(len(boxes)):
+        #         f.write(str(list(boxes[i,:4]))[1:-1]+', '+self.category[boxes[i][-1]]+'\n')
+        # cv2.imshow("Object detection", im)
+        return viz

@@ -23,9 +23,9 @@ def preprocess_1(img, device):
 class Unet_seg(nn.Module):
     def __init__(self, device):
         super(Unet_seg, self).__init__()
-        self.model=UNet(in_channels=3, out_channels=6)
+        self.model=unet(n_channels=3, n_classes=6)
         self.device = device
-        self.model.load_state_dict(torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/unet-GID_5_seg.pt'))
+        self.model.load_state_dict(torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/unet_3ch_GID_5_seg.pt'))
         self.model.float().eval().to(device)
 
         self.category = ['built-up','farmland', 'forest', 'meadow', 'water', 'ignored']
@@ -47,7 +47,7 @@ class Unet_seg(nn.Module):
         return vis
 
 
-    def inference(self,image_path, det_prompt,updated_image_path):
+    def inference(self,image_path, det_prompt, updated_image_path):
         det_prompt=det_prompt.strip()
         image = torch.from_numpy(io.imread(image_path))
         image = (image.permute(2, 0, 1).unsqueeze(0) - self.mean) / self.std
@@ -64,11 +64,36 @@ class Unet_seg(nn.Module):
         else:
             print('Category ',det_prompt,' do not suuport!')
             return ('Category ',det_prompt,' do not suuport!','The expected input category include Building, Road, Water, Barren, Forest, Farmland, Landuse.')
-
+        
         pred = Image.fromarray(pred_vis.astype(np.uint8))
         pred.save(updated_image_path)
         print(f"\nProcessed Landuse Segmentation, Input Image: {image_path+','+det_prompt}, Output: {updated_image_path}")
         return det_prompt+' segmentation result in '+updated_image_path
+
+    def inference_app(self,image_path, updated_image_path):
+        det_prompt= 'landuse'
+        or_image = io.imread(image_path)
+        image = torch.from_numpy(or_image)
+        image = (image.permute(2, 0, 1).unsqueeze(0) - self.mean) / self.std
+        with torch.no_grad():
+            b, c, h, w = image.shape
+            pred = self.model(image.to(self.device))
+            pred = F.interpolate(pred, (h, w), mode='bilinear')
+        pred = pred.argmax(1).cpu().squeeze().int().numpy()
+        if det_prompt.lower() == 'landuse':
+            pred_vis = self.visualize(pred, self.category)
+        elif det_prompt.lower() in [i.lower() for i in self.category]:
+            idx=[i.lower() for i in self.category].index(det_prompt.strip().lower())
+            pred_vis = self.visualize(pred, [idx])
+        else:
+            print('Category ',det_prompt,' do not suuport!')
+            return ('Category ',det_prompt,' do not suuport!','The expected input category include Building, Road, Water, Barren, Forest, Farmland, Landuse.')
+
+        print(f"\nProcessed Landuse Segmentation, Input Image: {image_path+','+det_prompt}, Output: {updated_image_path}")
+
+        result = cv2.addWeighted(or_image, 0.5, pred_vis, 0.5, 0)
+        return result, image.shape
+
 
 if __name__=='__main__':
     net=Unet_seg()

@@ -41,6 +41,25 @@ class SwinInstance:
         else:
             print(f"\nCategory: { det_prompt} is not supported. Please use other tools.")
             return f"Category {det_prompt} is not supported. Please use other tools."
+        
+
+    def inference_app(self, image_path, det_prompt ,updated_image_path):
+        det_prompt = 'ship'
+        image = torch.from_numpy(io.imread(image_path))
+        image = (image.permute(2, 0, 1).unsqueeze(0) - self.mean) / self.std
+        with torch.no_grad():
+            pred = self.model(image.to(self.device))
+        pred = pred.argmax(1).cpu().squeeze().int().numpy()
+
+        if det_prompt.strip().lower() in [i.strip().lower()  for i in self.all_dict.keys()]:
+            idx=[i.replace(' ', '_').lower() for i in self.all_dict.keys()].index(det_prompt.strip().lower())+1
+            pred=(pred==idx)*255
+
+            print(f"\nProcessed Instance Segmentation, Input Image: {image_path + ',' + det_prompt}, Output SegMap: {updated_image_path}")
+            return pred, image.shape
+        else:
+            print(f"\nCategory: { det_prompt} is not supported. Please use other tools.")
+            return f"Category {det_prompt} is not supported. Please use other tools."
 
 
 

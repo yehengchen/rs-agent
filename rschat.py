@@ -11,7 +11,7 @@ import numpy as np
 
 from skimage import io
 from colorama import Fore, Back, Style
-from LLM import LLaMA3_LLM
+from LLM import LLaMA3_LLM, LLaMA3_1_LLM
 # from langchain.chat_models import ChatOpenAI
 from langchain.agents.initialize import initialize_agent
 from langchain.agents.tools import Tool
@@ -244,7 +244,6 @@ class ObjectDetection:
         image_path, det_prompt = process_inputs(inputs)
         updated_image_path = get_new_image_name(image_path, func_name="detection_" + det_prompt.replace(' ', '_'))
         log_text = self.func.inference(image_path, det_prompt, updated_image_path)
-        print('##########', inputs)
         if viz:
             show = input('\nDo you want to see ObjectDetection result? (yes/no)')
             if show.lower() == 'yes':
@@ -303,8 +302,8 @@ class RSChat:
         # self.llm = ChatOpenAI(api_key=openai_key, base_url=proxy_url, model_name=gpt_name,temperature=0)
         # self.llm = LLaMA3_LLM(mode_name_or_path="/home/zjlab/Meta-Llama-3-8B-Instruct")
         self.llm = LLaMA3_LLM(mode_name_or_path="/home/zjlab/Llama-3-8B-Chinese")
-        # self.llm = LLaMA3_LLM(mode_name_or_path="/home/mars/cyh_ws/LLM/models/Llama-3-Groq-8B-Tool-Use")
-
+        # self.llm = LLaMA3_1_LLM(mode_name_or_path="/home/mars/cyh_ws/LLM/models/Llama3.1-8B-Chinese-Chat")
+        # self.llm = LLaMA3_LLM(mode_name_or_path="/home/zjlab/llama3___1-8b-instruct-dpo-zh")
         self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='output', return_messages=True)
 
     def initialize(self, language):
@@ -421,7 +420,8 @@ if __name__ == '__main__':
 
         # txt = 'Get remote sensing image description.'
 
-        txt = 'How many ships are there in port of Singapore? Please count the ships'
+        # txt = 'How many ships are there in port of Singapore? Please count the ships'
+        txt = '新加坡港口有多少艘船？请帮我检测并计数船只数量'
         # txt = 'Are there ships at Dubai Port? Please give the location of the ship'
 
         # txt = 'Is there ​​farmland near by Zhejiang Lab? Please draw the area of ​​farmland'
@@ -484,7 +484,7 @@ if __name__ == '__main__':
 
             final_response = state[-1][-1]
             response_num = replace_all_numbers(final_response, count_num) 
-            if count_num != "":
+            if count_num != None:
                 print(f'\033[1m\033[36m Final Response: {response_num}\033[0m')
             else:
                 print(f'\033[1m\033[36m Final Response: {final_response}\033[0m')
