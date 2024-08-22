@@ -656,15 +656,14 @@ if __name__ == '__main__':
             examples_img_list = [i.split(',') for i in examples_img]
             print('dsadasdas',examples_img_list)
             with gr.Row():
+
                 with gr.Column(scale=1): 
                     image_input = gr.Image(type="filepath", label="Upload image")
+                    examples = gr.Examples(examples_img_list, image_input)
                     # examples=image_list(folder_path)
                 with gr.Column(scale=1):
                     # chatbot_display = chatbot
                     processed_image_output = gr.Image(type="filepath", label="处理后的图片")
-                
-                with gr.Column(scale=0.1): 
-                    examples = gr.Examples(examples_img_list, image_input)
             
             with gr.Row():
                 chatbot = gr.Chatbot(
@@ -679,10 +678,18 @@ if __name__ == '__main__':
             
             with gr.Row() as input_raw:
                 # btn = gr.UploadButton(label="🖼️",file_types=["image"], scale=0.05)
-                msg = gr.Textbox(interactive=True, lines=1, show_label=False, placeholder="输入您的指令, 可通过Shift+回车⏎换行", scale=3.95)
+                msg = gr.MultimodalTextbox(interactive=True,
+                        file_count="multiple",
+                        placeholder="输入您的指令, 可通过Shift+回车⏎换行...", 
+                        show_label=False,
+                        lines=1, 
+                        scale=3.95
+                        )
+                # msg = gr.Textbox(lines=1, label="Chat Message", placeholder="输入您的指令, 可通过Shift+回车⏎换行", scale=3.95)
                 submit_button = gr.Button("Submit")
                 clear = gr.Button("Clear")
-            
+
+   
             def user(user_message, history):
                 user_message = user_message.replace("\n", "")
                 return user_message, history + [[user_message, None]]
@@ -732,7 +739,56 @@ if __name__ == '__main__':
                     history[-1][1] = response[-1][1] + '\n`💡提示：可以上传图片🖼️，并对图片进行提问🤔`'
                     out_img = None
                 return history, out_img
+            
+            def add_message(history, message):
+                for x in message["files"]:
+                    history.append(((x,), None))
+                if message["text"] is not None:
+                    history.append((message["text"], None))
+                return history, gr.MultimodalTextbox(value=None, interactive=False)
 
+            def bot_1(image_input, message, history):
+                if image_input is not None:
+                    # history[-1][1] = image_input
+                    processed_image = image_format(image_input)
+                    current_state, thought_process, observations = agent.run_image_gradio(processed_image, args.language, [], message)
+                    observation_pattern = re.compile(r".*?(image.*?\.png)")
+                    for j in range(len(thought_process[0])):
+                        for i in range(3):
+                            history[-1][1] = history[-1][1] + thought_process[i][j] + "\n"
+                        if j < len(observations):
+                            history[-1][1] = history[-1][1] + "💭Observation " + str(j) + ": " + observations[j] + "\n"
+                            match = observation_pattern.search(observations[j])
+                            if match:
+                                out_img = match.group(1)
+                        history += [[None, None]]
+                        history[-1][1] = ''
+                    
+                    if is_image(updated_image_path):
+                        out_img = updated_image_path
+                    else:
+                        out_img = None
+
+                    # final_thought = "\n" + "🧠之江天绘遥感智能体:\n" + current_state[1][1]
+                    final_thought = "\n" + current_state[1][1]
+
+                    if count_num != None:
+                        final_thought = replace_all_numbers(final_thought, count_num) 
+                        print(f'\033[1m\033[36m {final_thought}\033[0m')
+                    else:
+                        print(f'\033[1m\033[36m {final_thought}\033[0m')
+
+                    history[-1][1] = final_thought
+                    updated_image_path = ""
+                else:
+                    # gr.Warning("Warning! Please upload an image first.", duration=5)
+                    print('mess@!#@!!!!!!!!', message)
+                    response = agent.run_no_image(message, history)
+                    
+
+                    history[-1][1] = response[-1][1] + '\n`💡提示：可以上传图片🖼️，并对图片进行提问🤔`'
+                    out_img = None
+                return history, out_img
 
             def clear_uploaded_image():
                 image_input.value = ''
@@ -744,10 +800,10 @@ if __name__ == '__main__':
 
             # msg.submit(user, [image_input, chatbot], [image_input, chatbot], queue=False)
             
-            response = msg.submit(user, [msg, chatbot], [msg, chatbot], queue=False).then(
-                bot, [image_input, msg, chatbot], [chatbot, processed_image_output]
-            )
-            msg.submit(lambda: "", None, msg)
+            # response = msg.submit(user, [msg, chatbot], [msg, chatbot], queue=False).then(
+            #     bot, [image_input, msg, chatbot], [chatbot, processed_image_output]
+            # )
+            # msg.submit(lambda: "", None, msg)
             # response.then(lambda: gr.update(interactive=True), None, [msg], queue=False)
             
 
@@ -758,8 +814,12 @@ if __name__ == '__main__':
             # image_input_show = '![]' +image_input
             # image_input_show = image_input.value
             # processed_image = image_format(image_input)
-            image_input.upload(user, [image_input, chatbot], [image_input, chatbot], queue=False).then(bot, [image_input, msg, chatbot], [chatbot, processed_image_output])
+            image_input.upload(add_message, [image_input, chatbot], [image_input, chatbot], queue=False).then(bot, [image_input, msg, chatbot], [chatbot, processed_image_output])
             
+            chat_msg = msg.submit(add_message, [chatbot, msg], [chatbot, msg])
+            bot_msg = chat_msg.then(bot_1, [image_input, msg, chatbot], [chatbot, processed_image_output])
+            bot_msg.then(lambda: gr.MultimodalTextbox(interactive=True), None, [msg])
+
             clear.click(lambda: None, None, chatbot, queue=False)
             clear.click(agent.memory.clear)
             # clear.click(lambda: [], None, state)
