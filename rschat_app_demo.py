@@ -164,22 +164,6 @@ def get_new_image_name(org_img_name, func_name="update"):
 
     return os.path.join(head, new_file_name)
 
-# def get_new_image_name(org_img_name, func_name="update"):
-#     head_tail = os.path.split(org_img_name)
-#     head = head_tail[0]
-#     tail = head_tail[1]
-#     name_split = tail.split('.')[0].split('_')
-#     this_new_uuid = str(uuid.uuid4())[:4]
-#     if len(name_split) == 1:
-#         most_org_file_name = name_split[0]
-#     else:
-#         assert len(name_split) == 4
-#         most_org_file_name = name_split[3]
-#     recent_prev_file_name = name_split[0]
-#     new_file_name = f'{this_new_uuid}_{func_name}_{recent_prev_file_name}_{most_org_file_name}.png'
-#     return os.path.join(head, new_file_name)
-
-
 def show_image(img_path):
     img = cv2.imread(img_path)
     reimg = cv2.resize(img, (640, 640))
@@ -545,7 +529,6 @@ class RSChat:
         self.memory.chat_memory.add_ai_message(AI_prompt)
 
         # state = state + [(f"![](file={image_filename})*{image_filename}*", AI_prompt)]
-
         # state = state + [(f"![](file={image})*{image}*", AI_prompt)]
         state = state + [({image}, AI_prompt)]
 
@@ -565,8 +548,8 @@ if __name__ == '__main__':
                         help='Image Captioning is basic models that is required. You can select from [ImageCaptioning,ObjectDetection,LandUseSegmentation,InstanceSegmentation,ObjectCounting,SceneClassification,EdgeDetection]',
                         default="ImageCaptioning_cuda:0,SceneClassification_cuda:0,ObjectDetection_cuda:0,LandUseSegmentation_cuda:0,InstanceSegmentation_cuda:0,ObjectCounting_cuda:0,EdgeDetection_cpu")
     args = parser.parse_args()
-
     language = args.language
+    
     count_num = ""
     updated_image_path = ""
     det_prompt = ""
@@ -648,24 +631,24 @@ if __name__ == '__main__':
             # lang = gr.Radio(choices=['Chinese', 'English'], value=None,label='Language')
             image_input = gr.State(None)
             processed_image_output = gr.State(None)
-            # image_input = gr.State(None)
+            processed_image_state = gr.State(None)
             # processed_image_output = gr.State(None)
             # chatbot = gr.State(None)
-            # imagebox = textbox = gr.Textbox()
             
             examples_img_list = [i.split(',') for i in examples_img]
-            print('dsadasdas',examples_img_list)
             with gr.Row():
                 with gr.Column(scale=1): 
-                    image_input = gr.Image(type="filepath", label="Upload image")
+                    image_input = gr.Image(type="filepath", label="上传图像")
                     # examples=image_list(folder_path)
+                    submit_img_button = gr.Button("上传图像")
+                                        
                 with gr.Column(scale=1):
                     # chatbot_display = chatbot
-                    processed_image_output = gr.Image(type="filepath", label="处理后的图片")
-                
-                with gr.Column(scale=0.1): 
-                    examples = gr.Examples(examples_img_list, image_input)
-            
+                    processed_image_output = gr.Image(type="filepath", label="处理后的图像")
+                    # processed_image_state = gr.Textbox(image_input, label="处理后的图像信息")
+                       
+            examples = gr.Examples(examples_img_list, image_input, label="遥感图像示例")
+
             with gr.Row():
                 chatbot = gr.Chatbot(
                     value=[[None, "你好，我是【之江天绘】智能遥感图像助手🤖，有什么我可以帮助你的吗？可以上传图片🖼️并进行提问！"]],
@@ -695,13 +678,14 @@ if __name__ == '__main__':
                 # global processed_image
                 if image_input is not None:
                     # history[-1][1] = image_input
+                    global processed_image
                     processed_image = image_format(image_input)
                     current_state, thought_process, observations = agent.run_image_gradio(processed_image, args.language, [], message)
                     observation_pattern = re.compile(r".*?(image.*?\.png)")
                     for j in range(len(thought_process[0])):
                         for i in range(3):
                             history[-1][1] = history[-1][1] + thought_process[i][j] + "\n"
-                        if j < len(observations):
+                        if j < len(observations) or history[-1][1] is not None:
                             history[-1][1] = history[-1][1] + "💭Observation " + str(j) + ": " + observations[j] + "\n"
                             match = observation_pattern.search(observations[j])
                             if match:
@@ -717,20 +701,20 @@ if __name__ == '__main__':
                     # final_thought = "\n" + "🧠之江天绘遥感智能体:\n" + current_state[1][1]
                     final_thought = "\n" + current_state[1][1]
 
-                    if count_num != None:
-                        final_thought = replace_all_numbers(final_thought, count_num) 
-                        print(f'\033[1m\033[36m {final_thought}\033[0m')
-                    else:
-                        print(f'\033[1m\033[36m {final_thought}\033[0m')
+                    # if count_num != None:
+                    #     final_thought = replace_all_numbers(final_thought, count_num) 
+                    #     print(f'\033[1m\033[36m {final_thought}\033[0m')
+                    # else:
+                    #     print(f'\033[1m\033[36m {final_thought}\033[0m')
 
                     history[-1][1] = final_thought
                     updated_image_path = ""
                 else:
                     # gr.Warning("Warning! Please upload an image first.", duration=5)
                     response = agent.run_no_image(message, history)
-
                     history[-1][1] = response[-1][1] + '\n`💡提示：可以上传图片🖼️，并对图片进行提问🤔`'
                     out_img = None
+            
                 return history, out_img
 
 
@@ -743,13 +727,18 @@ if __name__ == '__main__':
             # btn.upload(handle_image_upload, [image_input, state, msg], [uploaded_image, chatbot, state, msg])
 
             # msg.submit(user, [image_input, chatbot], [image_input, chatbot], queue=False)
-            
+
             response = msg.submit(user, [msg, chatbot], [msg, chatbot], queue=False).then(
                 bot, [image_input, msg, chatbot], [chatbot, processed_image_output]
             )
             msg.submit(lambda: "", None, msg)
             # response.then(lambda: gr.update(interactive=True), None, [msg], queue=False)
             
+            submit_img_button.click(user, [image_input, chatbot], [msg, chatbot], queue=False).then(
+                bot, [image_input, msg, chatbot], [chatbot, processed_image_output])
+            submit_img_button.click(lambda: "", None, msg)
+            submit_img_button.click(agent.memory.clear)
+
 
             submit_button.click(user, [image_input, chatbot], [msg, chatbot], queue=False).then(
                 bot, [image_input, msg, chatbot], [chatbot, processed_image_output])
@@ -758,7 +747,7 @@ if __name__ == '__main__':
             # image_input_show = '![]' +image_input
             # image_input_show = image_input.value
             # processed_image = image_format(image_input)
-            image_input.upload(user, [image_input, chatbot], [image_input, chatbot], queue=False).then(bot, [image_input, msg, chatbot], [chatbot, processed_image_output])
+            # image_input.upload(user, [image_input, chatbot], [image_input, chatbot], queue=False).then(bot, [image_input, msg, chatbot], [chatbot, processed_image_output])
             
             clear.click(lambda: None, None, chatbot, queue=False)
             clear.click(agent.memory.clear)
