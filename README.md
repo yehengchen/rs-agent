@@ -1,6 +1,26 @@
 # RS-Chat: Solving Remote Sensing Tasks with LLM and Visual Models
 Introduction
 ----
+
+
+### Updates
+- [2024.07.05]: 
+	* Add Llama3-8b-Instruct / Qwen2 LLM support, supporting English.
+	* Update the LLM model to Llama3-8b-Chinese, base ,supporting EN/CH.
+
+- [2024.07.15]: 
+    * Update the image captioning model to RS_BLIP, model has been finetuned on the rsicd dataset.
+	* Add PAN image object detection and counting support.``` {--img_ch} 1 for PAN/Gray, 3 for MS/RGB```
+
+- [2024.07.17]: 
+	* Update Landuse Segmentation (Unet) support.
+	* Update Object Detection (YOLOv5s) support.
+
+- [2024.08.27]:
+	* Suported Gradio interface.
+	* Release the first demo of RS-Chat.
+
+
 ### Requirements
 ```
 pip install -r requirements.txt
@@ -8,27 +28,13 @@ pip install -r requirements.txt
 
 ### Run
 ```
-# Suported language: English, Chinese
-
 python rschat.py --image_dir ./image/rs-ship.jpg --language English
 ```
 
-### Updates
-- [2024.07.05]: 
-	Add Llama3-8b-Instruct support, supporting English.
-  
-- [2024.07.06]: 
-	Update the LLM model to Llama3-8b-Chinese, base ,supporting EN/CH.
-
-- [2024.07.10]: 
-  	Update the image captioning model to RS_BLIP, model has been finetuned on the rsicd dataset.
-
-- [2024.07.15]: 
-	Add PAN image object detection and counting support.``` {--img_ch} 1 for PAN/Gray, 3 for MS/RGB```
-
-- [2024.07.17]: 
-	Add Landuse Segmentation (Unet) support.
-
+### Run Gradio app
+```
+python python rschat_app_demo.py
+```
 
 
 ### Supported Model

@@ -554,7 +554,7 @@ if __name__ == '__main__':
     updated_image_path = ""
     det_prompt = ""
     image_path = ""
-    state = []
+    state =  gr.State([])
 
     load_dict = {e.split('_')[0].strip(): e.split('_')[1].strip() for e in args.load.split(',')}
     agent = RSChat(load_dict=load_dict)
@@ -718,16 +718,6 @@ if __name__ == '__main__':
                 return history, out_img
 
 
-            def clear_uploaded_image():
-                image_input.value = ''
-                processed_image_output.value = ''
-                return
-            # lang.change(agent.initialize, [lang], [input_raw, lang, msg, clear])
-            
-            # btn.upload(handle_image_upload, [image_input, state, msg], [uploaded_image, chatbot, state, msg])
-
-            # msg.submit(user, [image_input, chatbot], [image_input, chatbot], queue=False)
-
             response = msg.submit(user, [msg, chatbot], [msg, chatbot], queue=False).then(
                 bot, [image_input, msg, chatbot], [chatbot, processed_image_output]
             )
@@ -739,26 +729,18 @@ if __name__ == '__main__':
             submit_img_button.click(lambda: "", None, msg)
             submit_img_button.click(agent.memory.clear)
 
-
             submit_button.click(user, [image_input, chatbot], [msg, chatbot], queue=False).then(
-                bot, [image_input, msg, chatbot], [chatbot, processed_image_output])
+                bot, [image_input, msg, chatbot], [chatbot, processed_image_output])            
             submit_button.click(agent.memory.clear)
             submit_button.click(lambda: "", None, msg)
-            # image_input_show = '![]' +image_input
-            # image_input_show = image_input.value
-            # processed_image = image_format(image_input)
-            # image_input.upload(user, [image_input, chatbot], [image_input, chatbot], queue=False).then(bot, [image_input, msg, chatbot], [chatbot, processed_image_output])
-            
-            clear.click(lambda: None, None, chatbot, queue=False)
+           
             clear.click(agent.memory.clear)
-            # clear.click(lambda: [], None, state)
+            clear.click(lambda: None, None, chatbot, queue=False)
+            clear.click(lambda: [], None, state)
             clear.click(lambda: None, None, image_input, queue=False)
             clear.click(lambda: None, None, processed_image_output, queue=False)
-            # clear.click(lambda: None, None, image_path, queue=False)
             clear.click(lambda:None, "", updated_image_path)
-            clear.click(clear_uploaded_image, None)
             clear.click(lambda: None, "", det_prompt, queue=False)
-            # init.click(lambda: None, None, agent.initialize(args.language), queue=False)
     
     gr.close_all()
     demo.queue()
