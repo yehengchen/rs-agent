@@ -10,3 +10,4 @@ from RStask.ObjectDetection.YOLOv5 import YoloDetection as DetectionFunction
 from RStask.ObjectDetection.YOLOv5_ship import YoloDetection_ship as DetectionFunction_ship
 from RStask.SceneClassification.ResNetScene import ResNetAID as SceneFunction
 from RStask.InstanceSegmentation.SwinUpper import SwinInstance as InstanceFunction
+from RStask.FireDetection.fire_det import FireDetection as FireFunction

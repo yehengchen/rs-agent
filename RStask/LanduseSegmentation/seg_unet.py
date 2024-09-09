@@ -75,7 +75,7 @@ class Unet_seg(nn.Module):
         # pred.save(updated_image_path)
         print(f"\nProcessed Landuse Segmentation, Input Image: {image_path+','+det_prompt}, Output: {updated_image_path}")
         
-        return det_prompt+' segmentation result in '+updated_image_path
+        return det_prompt #+' segmentation result in '+updated_image_path
 
     def inference_app(self,image_path, updated_image_path):
         det_prompt= 'landuse'

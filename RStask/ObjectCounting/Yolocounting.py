@@ -73,7 +73,7 @@ class YoloCounting:
              list of detections, on (n,6) tensor per image [xyxy, conf, cls]
         """
 
-        def box_iou(box1, box2):
+        def box_iou(box1,      box2):
             def box_area(box):
                 # box = xyxy(4,n)
                 return (box[2] - box[0]) * (box[3] - box[1])

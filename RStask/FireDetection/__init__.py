@@ -1,0 +1,1 @@
+from RStask.FireDetection.fire_det import FireDetection

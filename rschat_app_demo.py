@@ -25,14 +25,16 @@ from langchain.chains import LLMChain
 
 from RStask.ObjectDetection.models.yolov5s import *
 from RStask.LanduseSegmentation.unet import *
+from RStask.FireDetection.fire_det import *
 
 from Prefix import RS_CHATGPT_PREFIX, RS_CHATGPT_FORMAT_INSTRUCTIONS, RS_CHATGPT_SUFFIX, RS_CHATGPT_PREFIX_CN, RS_CHATGPT_FORMAT_INSTRUCTIONS_CN, RS_CHATGPT_SUFFIX_CN, VISUAL_CHATGPT_PREFIX_CN, VISUAL_CHATGPT_FORMAT_INSTRUCTIONS_CN, VISUAL_CHATGPT_SUFFIX_CN
 from RStask import ImageEdgeFunction, CaptionFunction, LanduseFunction, LanduseFunction_Unet, DetectionFunction, DetectionFunction_ship, CountingFuncnction, \
-    CountingFuncnction_ship, SceneFunction, InstanceFunction, CaptionFunction_RS_BLIP, CaptionFunction3
+    CountingFuncnction_ship, SceneFunction, InstanceFunction, CaptionFunction_RS_BLIP, CaptionFunction3, FireFunction
 import gradio as gr
 from gradio import ChatMessage
 import warnings
 warnings.filterwarnings("ignore")
+import logging
 
 os.environ['GRADIO_TEMP_DIR'] = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/tmp'
 os.makedirs('image', exist_ok=True)
@@ -80,17 +82,11 @@ def image_list(folder_path):
     return image_path_list
 
 def is_image(path):
-    _, ext = os.path.splitext(path)
-    if ext.lower() in ('.jpg', '.jpeg', '.png', '.bmp', '.gif'):
-        is_img = True
-    else:
-        is_img = False
-    
     try:
-        cv2.imread(image_path)
-    except:
+        img = cv2.imread(path)
+        is_img = True
+    except IOError:
         is_img = False
-        print("Image not found")
     
     return is_img
 
@@ -102,25 +98,39 @@ def process_inputs(inputs):
     image_path = inputs.split(",")[0].strip()
     det_prompt = inputs.split(",")[1].strip()
 
-    path_match = re.search(r'image_path=(image/[\w.]+)', image_path)
+def process_inputs(inputs):
+    global image_path, det_prompt
+    pattern = r"(^image[^,]*),\s+([^\n]*)\n"
+    match = re.search(pattern, inputs)
     
+    image_path = inputs.split(",")[0].strip()
+    det_prompt = inputs.split(",")[1].strip()
+
+    path_match = re.search(r'image_path=(image/[\w.]+)', image_path)
     
     if path_match:
         image_path = path_match.group(1)
-        print(image_path)
+        logging.debug(f"image_path: {image_path}")
     else:
-        print('No match found')
+        logging.debug('No match found')
 
     if match:
         image_path = match.group(1)
         det_prompt = match.group(2)
+        logging.debug(f"image_path: {image_path}, det_prompt: {det_prompt}")
     else:
-        print('no match\n')
+        logging.debug('no match\n')
 
     if is_image(image_path):
         image_path = image_path
+        logging.debug(f"Valid image found: {image_path}")
     else:
-        print('No image found')
+        logging.debug('No image found')
+    
+    def remove_punctuation(text):
+        return re.sub(r'[^\w\s]', '', text)
+    
+    det_prompt = remove_punctuation(det_prompt)
 
     return image_path, det_prompt
 
@@ -164,13 +174,6 @@ def get_new_image_name(org_img_name, func_name="update"):
 
     return os.path.join(head, new_file_name)
 
-def show_image(img_path):
-    img = cv2.imread(img_path)
-    reimg = cv2.resize(img, (640, 640))
-    cv2.imshow('image', reimg)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
 class EdgeDetection:
     def __init__(self, device):
         print("Initializing Edge Detection Function")
@@ -183,7 +186,6 @@ class EdgeDetection:
                          "The input to this tool should be a string, representing the image_path")
     def inference(self, inputs):
         global updated_image_path
-
         updated_image_path = get_new_image_name(inputs, func_name="edge")
         self.func.inference(inputs, updated_image_path) 
 
@@ -204,8 +206,6 @@ class ObjectCounting:
         # image_path, det_prompt = inputs.split(",")
         image_path, det_prompt = process_inputs(inputs)
         log_text = self.func.inference(image_path, det_prompt)
-        # cv2.putText(image_path, log_text, (640, 640))
-        # show_image(image_path)
         global count_num
         count_num = extract_numbers(log_text)
 
@@ -236,13 +236,10 @@ class InstanceSegmentation:
             )
     def inference(self, inputs):
         global updated_image_path
-       
         # image_path, det_prompt = inputs.split(",")
         image_path, det_prompt = process_inputs(inputs)
         updated_image_path = get_new_image_name(image_path, func_name="instance_" + det_prompt)
         text = self.func.inference(image_path, det_prompt, updated_image_path)
-
-        # text = "Category do not suuport. Please try again."
 
         return text
 
@@ -253,7 +250,7 @@ class SceneClassification:
 
     @prompts(name="Scene Classification for Remote Sensing Image",
              description="useful when you want to know the type of scene or function for the image. "
-                         "like: what is the category of this image?, "
+                         "like: what is the category of this image? "
                          "or classify the scene of this image, or predict the scene category of this image, or what is the function of this image. "
                          "The input to this tool should be a string, representing the image_path. ")
     def inference(self, inputs):
@@ -283,20 +280,10 @@ class LandUseSegmentation:
         )
     def inference(self, inputs):
         global updated_image_path
-
-
         image_path, det_prompt = process_inputs(inputs)
         # image_path, det_prompt = inputs.split(",")
         updated_image_path = get_new_image_name(image_path, func_name="landuse")
-
         text = self.func.inference(image_path, det_prompt, updated_image_path)
-        
-        # img = cv2.imread(image_path)
-        # mask = cv2.imread(updated_image_path)
-        # result = cv2.addWeighted(img, 0.5, mask, 0.5, 0)
-        # cv2.imwrite(updated_image_path, result)
-
-        # cv2.imshow('mask_rslt', result)
 
         return text
 
@@ -307,25 +294,51 @@ class ObjectDetection:
              
     @prompts(name="Detect the given object",
              description="useful when you only want to detect the bounding box of the certain objects in the picture according to the given text."
-                         "like: detect the ship, or can you locate an object for me."
-                         "The input to this tool should be a comma separated string of two, "
+                         "like: detect the ship, or can you locate an object for me. how many plane are there in the image? or count the number of bridges."
+                         "The input to this tool should be a comma separated string of two,"
                          "representing the image_path, the text description of the object to be found"
-    
-            # description="当您只想根据给定的文本检测图片中特定对象的范围框时，这个工具非常有用。"
-            #             "例如：检测船只，或者定位一个目标。"
-            #             "这个工具的输入应该是一个逗号分隔的字符串，代表图像路径和要找到的对象的文本描述。"
             )
+
     def inference(self, inputs):
         global updated_image_path
-
         image_path, det_prompt = process_inputs(inputs)
         # image_path, det_prompt = inputs.split(",")
 
         updated_image_path = get_new_image_name(image_path, func_name="detection_" + det_prompt.replace(' ', '_'))
         log_text = self.func.inference(image_path, det_prompt, updated_image_path)
 
-
         return log_text
+
+class FireDetection:
+    def __init__(self, device):
+        print("Initializing FireDetection")
+        self.func = FireFunction(device)
+             
+    @prompts(name="Detect the fire",
+             description="useful when you only want to detect fire in this picture according to the given text. "
+                         "like: detect the fire, or can you identify any fire in the picture? "
+                         "or Is there a fire in this image?  or Is the image showing a fire incident? "
+                         "representing the image_path, the text description of the fire to be found. "
+            )
+    
+    # def inference(self, inputs):
+    #     global updated_image_path
+
+    #     image_path, det_prompt = process_inputs(inputs)
+
+    #     updated_image_path = get_new_image_name(image_path, func_name="fire_detection_" + det_prompt.replace(' ', '_'))
+    #     log_text = self.func.inference(image_path, det_prompt, updated_image_path)
+    #     return log_text
+    
+    def inference(self, inputs):
+        # output_txt = self.func.inference(inputs)
+        global updated_image_path
+        updated_image_path = get_new_image_name(image_path, func_name="fire_detection_" + det_prompt.replace(' ', '_'))
+
+        output_txt = self.func.inference(inputs.split('\n')[0], updated_image_path)
+        print('fire_detection', output_txt)
+        return output_txt
+    
 
 class ImageCaptioning:
     def __init__(self, device):
@@ -338,8 +351,6 @@ class ImageCaptioning:
                          "The input to this tool should be a string, representing the image_path. ")
     def inference(self, image_path):
         captions = self.func.inference(image_path.split('\n')[0])
-        # captions = 'A satellite image of many ships in the port of Singapore.'
-        # print(f"\nProcessed ImageCaptioning, Input Image: {image_path}, Output Text: {captions}")
 
         return captions
 
@@ -371,12 +382,9 @@ class RSChat:
                     func = getattr(instance, e)
                     self.tools.append(Tool(name=func.name, description=func.description, func=func))
 
-        # self.llm = ChatOpenAI(api_key=openai_key, base_url=proxy_url, model_name=gpt_name,temperature=0)
-        # self.llm = LLaMA3_LLM(mode_name_or_path="/home/zjlab/Meta-Llama-3-8B-Instruct")
         # self.llm = LLaMA3_LLM(mode_name_or_path="/home/zjlab/Llama-3-8B-Chinese")
         self.llm = Qwen2_LLM(mode_name_or_path="/home/mars/cyh_ws/LLM/models/Qwen2-7B-Instruct")
         # self.llm = LLaMA3_1_LLM(mode_name_or_path="/home/mars/cyh_ws/LLM/models/Llama3.1-8B-Chinese-Chat")
-        # self.llm = LLaMA3_LLM(mode_name_or_path="/home/zjlab/llama3___1-8b-instruct-dpo-zh")
 
         self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='output', return_messages=True)
 
@@ -416,7 +424,7 @@ class RSChat:
             res = self.agent({"input": text.strip()})
             res['output'] = res['output'].replace("\\", "/")
             res['intermediate_steps'] = 'No'
-            # print('2!#@!#!@res', res)
+        
         except ValueError as e:
             response = str(e)
             if not response.startswith("Could not parse LLM output: `"):
@@ -424,9 +432,19 @@ class RSChat:
         
         response = res['output']
         state = state + [(text, response)]
+        # state = self.run_text(f'{text}', state)
         return state
     
     def run_text(self, text, state):
+        res = self.agent({"input": text.strip()})
+        res['output'] = res['output'].replace("\\", "/")
+        response = re.sub('(image/[-\w]*.png)', lambda m: f'![](file={m.group(0)})*{m.group(0)}*', res['output'])
+        state = state + [(text, response)]
+        print(f"\nProcessed run_text, Input text: {text}\nCurrent state: {state}\n"
+              f"Current Memory: {self.agent.memory.buffer}")
+        return state
+    
+    def run_text_det(self, text, state):
         try:
             res = self.agent({"input": text.strip()})
             res['output'] = res['output'].replace("\\", "/")
@@ -436,9 +454,6 @@ class RSChat:
             if not response.startswith("Could not parse LLM output: `"):
                 raise e
         
-        # print("input text:",text, "\ncurrent state:",state)
-        # res = self.agent({"input": text.strip()})
-        # res['output'] = res['output'].replace("\\", "/")
         intermediate_step_list = [[], [], []]
         observations = []
         re_pattern = re.compile(
@@ -508,16 +523,20 @@ class RSChat:
         #     print(f"\n正在处理图像: {image_filename}\n当前状态: {state}\n当前记忆: {self.agent.memory.buffer}")
         
         # print(img.shape)
+
         state = self.run_text(f'{txt} {image_filename} ', state)
 
         return state
     
     def run_image_gradio(self, image, language, state=[], txt=None):
-        # description = None
+        description = ""
         
-        global description
-        description = self.models['ImageCaptioning'].inference(image)
-        print(description)
+        # global description
+        if description == "":
+            description = self.models['ImageCaptioning'].inference(image)
+        else:
+            print(description)
+        # print(description)
         if language == 'English':
             Human_prompt = f' Provide a remote sensing image named {image}. The description is: {description}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\".'
             AI_prompt = "Received."
@@ -537,16 +556,26 @@ class RSChat:
                 f"\nProcessed run_image, Input image: {image}\nCurrent state: {state}\nCurrent Memory: {self.agent.memory.buffer}")
         else:
             print(f"\n正在处理图像: {image}\n当前状态: {state}\n当前记忆: {self.agent.memory.buffer}")
-        state, intermediate_step_list, observations = self.run_text(f'{txt} {image} ', state)
-        return state, intermediate_step_list, observations
+        state = self.run_text(f'{txt} {image} ', state)
+        return state
 
 if __name__ == '__main__':
+    
+    vfms = "ImageCaptioning_cuda:0,\
+            SceneClassification_cuda:0,\
+            ObjectDetection_cuda:0,\
+            LandUseSegmentation_cuda:0,\
+            InstanceSegmentation_cuda:0,\
+            EdgeDetection_cpu,\
+            FireDetection_cuda:0"
+            #ObjectCounting_cuda:0,\
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--openai_key', type=str, required=False)
     parser.add_argument('--language', type=str, default='Chinese',choices=['English','Chinese'])
     parser.add_argument('--load', type=str,
-                        help='Image Captioning is basic models that is required. You can select from [ImageCaptioning,ObjectDetection,LandUseSegmentation,InstanceSegmentation,ObjectCounting,SceneClassification,EdgeDetection]',
-                        default="ImageCaptioning_cuda:0,SceneClassification_cuda:0,ObjectDetection_cuda:0,LandUseSegmentation_cuda:0,InstanceSegmentation_cuda:0,ObjectCounting_cuda:0,EdgeDetection_cpu")
+                        help='Image Captioning is basic models that is required. You can select from [ImageCaptioning,ObjectDetection,LandUseSegmentation,InstanceSegmentation,ObjectCounting,SceneClassification,EdgeDetection,FireDetection]',
+                        default=vfms) 
     args = parser.parse_args()
     language = args.language
     
@@ -568,7 +597,6 @@ if __name__ == '__main__':
 
     with gr.Blocks(css="#chatbot .overflow-y-auto{height:500px} img {max-height: 100% !important}", theme = gr.themes.Default(text_size='lg')) as demo:
 
-
         gr.Markdown(
         """
 
@@ -582,7 +610,7 @@ if __name__ == '__main__':
         
         """)
 
-        with gr.Accordion("Image Prosessor"):
+        with gr.Accordion("Image Prosessor", open=False):
         
             with gr.Tab("Image Captioning"):      
                 caption = gr.Interface(fn=CaptionFunction_RS_BLIP(device='cpu').inference_app,
@@ -627,7 +655,7 @@ if __name__ == '__main__':
                             examples=examples_img
                         )
             
-        with gr.Accordion("RS-Agent with Llama3"):
+        with gr.Accordion("RS-Agent with LLM"):
             # lang = gr.Radio(choices=['Chinese', 'English'], value=None,label='Language')
             image_input = gr.State(None)
             processed_image_output = gr.State(None)
@@ -644,7 +672,9 @@ if __name__ == '__main__':
                                         
                 with gr.Column(scale=1):
                     # chatbot_display = chatbot
-                    processed_image_output = gr.Image(type="filepath", label="处理后的图像")
+                    processed_image_output = gr.Image(type="filepath", label="图像解析")
+
+
                     # processed_image_state = gr.Textbox(image_input, label="处理后的图像信息")
                        
             examples = gr.Examples(examples_img_list, image_input, label="遥感图像示例")
@@ -676,27 +706,27 @@ if __name__ == '__main__':
                 out_img = None
                 global updated_image_path
                 # global processed_image
-                if image_input is not None:
+                if image_input:
                     # history[-1][1] = image_input
                     global processed_image
                     processed_image = image_format(image_input)
-                    current_state, thought_process, observations = agent.run_image_gradio(processed_image, args.language, [], message)
+                    current_state = agent.run_image_gradio(processed_image, args.language, [], message)
                     observation_pattern = re.compile(r".*?(image.*?\.png)")
-                    for j in range(len(thought_process[0])):
-                        for i in range(3):
-                            history[-1][1] = history[-1][1] + thought_process[i][j] + "\n"
-                        if j < len(observations) or history[-1][1] is not None:
-                            history[-1][1] = history[-1][1] + "💭Observation " + str(j) + ": " + observations[j] + "\n"
-                            match = observation_pattern.search(observations[j])
-                            if match:
-                                out_img = match.group(1)
-                        history += [[None, None]]
-                        history[-1][1] = ''
+                    # for j in range(len(thought_process[0])):
+                    #     for i in range(3):
+                    #         history[-1][1] = history[-1][1] + thought_process[i][j] + "\n"
+                    #     if j < len(observations) or history[-1][1] is not None:
+                    #         history[-1][1] = history[-1][1] + "💭Observation " + str(j) + ": " + observations[j] + "\n"
+                    #         match = observation_pattern.search(observations[j])
+                    #         if match:
+                    #             out_img = match.group(1)
+                    #     history += [[None, None]]
+                    #     history[-1][1] = ''
                     
                     if is_image(updated_image_path):
                         out_img = updated_image_path
                     else:
-                        out_img = None
+                        out_img = ""
 
                     # final_thought = "\n" + "🧠之江天绘遥感智能体:\n" + current_state[1][1]
                     final_thought = "\n" + current_state[1][1]
@@ -709,10 +739,12 @@ if __name__ == '__main__':
 
                     history[-1][1] = final_thought
                     updated_image_path = ""
+                    if out_img == "":
+                        out_img = processed_image
                 else:
                     # gr.Warning("Warning! Please upload an image first.", duration=5)
                     response = agent.run_no_image(message, history)
-                    history[-1][1] = response[-1][1] + '\n`💡提示：可以上传图片🖼️，并对图片进行提问🤔`'
+                    history[-1][1] = response[-1][1] + '\n`💡提示：可以上传图片🖼️，并对图片进行提问🤔`' + '\n 或者可以问我有什么功能🛠️'
                     out_img = None
             
                 return history, out_img
@@ -736,7 +768,7 @@ if __name__ == '__main__':
            
             clear.click(agent.memory.clear)
             clear.click(lambda: None, None, chatbot, queue=False)
-            clear.click(lambda: [], None, state)
+            # clear.click(lambda: [], None, state)
             clear.click(lambda: None, None, image_input, queue=False)
             clear.click(lambda: None, None, processed_image_output, queue=False)
             clear.click(lambda:None, "", updated_image_path)

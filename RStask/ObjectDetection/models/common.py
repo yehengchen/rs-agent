@@ -278,7 +278,7 @@ class Concat(nn.Module):
 
 class DetectMultiBackend(nn.Module):
     # YOLOv5 MultiBackend class for python inference on various backends
-    def __init__(self, weights='yolov5s.pt', device=torch.device('cpu'), dnn=False,fp16=False):
+    def __init__(self, weights='yolov5s.pt', device=torch.device('cpu'), dnn=False, fp16=False):
 
         from RStask.ObjectDetection.models.experimental import attempt_download, attempt_load  # scoped to avoid circular import
 

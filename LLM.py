@@ -137,7 +137,7 @@ class Qwen2_LLM(LLM):
                 **kwargs: Any):
 
         messages = [{"role": "user", "content": prompt }]
-        input_ids = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, top_p=0.9, temperature=0.2, repetition_penalty=1.1)
+        input_ids = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, top_p=0.8, temperature=0.2, repetition_penalty=1.1)
         model_inputs = self.tokenizer([input_ids], return_tensors="pt").to('cuda')
         generated_ids = self.model.generate(model_inputs.input_ids,max_new_tokens=512,use_cache=True)
         generated_ids = [
