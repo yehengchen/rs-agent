@@ -8,8 +8,16 @@ import cv2
 import time
 import torch
 import numpy as np
-
+import yaml
+import random
+import pandas as pd
+# import PyPDF2
+from tqdm import tqdm
 from skimage import io
+import warnings
+warnings.filterwarnings("ignore")
+import logging
+
 from colorama import Fore, Back, Style
 from LLM import LLaMA3_LLM, LLaMA3_1_LLM, Qwen2_LLM
 # from langchain.chat_models import ChatOpenAI
@@ -22,6 +30,8 @@ from langchain.chains.conversation.memory import ConversationBufferMemory, Conve
 
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+# from langchain.vectorstores import Milvus
+from langchain_community.vectorstores import Milvus
 
 from RStask.ObjectDetection.models.yolov5s import *
 from RStask.LanduseSegmentation.unet import *
@@ -31,148 +41,14 @@ from Prefix import RS_CHATGPT_PREFIX, RS_CHATGPT_FORMAT_INSTRUCTIONS, RS_CHATGPT
 from RStask import ImageEdgeFunction, CaptionFunction, LanduseFunction, LanduseFunction_Unet, DetectionFunction, DetectionFunction_ship, CountingFuncnction, \
     CountingFuncnction_ship, SceneFunction, InstanceFunction, CaptionFunction_RS_BLIP, CaptionFunction3, FireFunction
 import gradio as gr
-from gradio import ChatMessage
-import warnings
-warnings.filterwarnings("ignore")
-import logging
+
+from process_data import *
 
 os.environ['GRADIO_TEMP_DIR'] = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/tmp'
 os.makedirs('image', exist_ok=True)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
-
-def image_format(raw_image):
-    folder_name = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-    folder_path = os.path.join('image', folder_name) 
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-    
-    image_filename = os.path.join(folder_path, f"{str(uuid.uuid4())[:8]}.png")
-    # image_filename = os.path.join('image', f"{str(uuid.uuid4())[:8]}.png")
-    img = io.imread(raw_image)
-    width, height = img.shape[1], img.shape[0]
-    ratio = min(4096 / width, 4096 / height)
-
-    if ratio < 1:
-        width_new, height_new = (round(width * ratio), round(height * ratio))
-    else:
-        width_new, height_new = width, height
-    width_new = int(np.round(width_new / 64.0)) * 64
-    height_new = int(np.round(height_new / 64.0)) * 64
-
-    if width_new != width or height_new != height:
-        img = cv2.resize(img, (width_new, height_new))
-        print(f"======>Auto Resizing Image from {height, width} to {height_new, width_new}...")
-    else:
-        print(f"======>Auto Renaming Image...")
-    io.imsave(image_filename, img.astype(np.uint8))
-    return image_filename
-
-def image_list(folder_path):
-    file_list = os.listdir(folder_path)
-    image_path_list = []
-    for file_name in file_list:
-        file_path = os.path.join(folder_path, file_name)
-        
-        if file_name.endswith('.jpg') or file_name.endswith('.png') or file_name.endswith('.tif'):
-            image_path_list.append(file_path)
-
-    print(image_path_list)
-    return image_path_list
-
-def is_image(path):
-    try:
-        img = cv2.imread(path)
-        is_img = True
-    except IOError:
-        is_img = False
-    
-    return is_img
-
-def process_inputs(inputs):
-    global image_path, det_prompt
-    pattern = r"(^image[^,]*),\s+([^\n]*)\n"
-    match = re.search(pattern, inputs)
-    
-    image_path = inputs.split(",")[0].strip()
-    det_prompt = inputs.split(",")[1].strip()
-
-def process_inputs(inputs):
-    global image_path, det_prompt
-    pattern = r"(^image[^,]*),\s+([^\n]*)\n"
-    match = re.search(pattern, inputs)
-    
-    image_path = inputs.split(",")[0].strip()
-    det_prompt = inputs.split(",")[1].strip()
-
-    path_match = re.search(r'image_path=(image/[\w.]+)', image_path)
-    
-    if path_match:
-        image_path = path_match.group(1)
-        logging.debug(f"image_path: {image_path}")
-    else:
-        logging.debug('No match found')
-
-    if match:
-        image_path = match.group(1)
-        det_prompt = match.group(2)
-        logging.debug(f"image_path: {image_path}, det_prompt: {det_prompt}")
-    else:
-        logging.debug('no match\n')
-
-    if is_image(image_path):
-        image_path = image_path
-        logging.debug(f"Valid image found: {image_path}")
-    else:
-        logging.debug('No image found')
-    
-    def remove_punctuation(text):
-        return re.sub(r'[^\w\s]', '', text)
-    
-    det_prompt = remove_punctuation(det_prompt)
-
-    return image_path, det_prompt
-
-def extract_numbers(input_string):
-    numbers = re.findall(r'\d+', input_string)
-    if len(numbers) > 0:
-        numbers = str(numbers[0])
-    else:
-        numbers = None
-
-    return numbers
-
-def replace_all_numbers(input_string, replacement):
-    result = re.sub(r'\d+', replacement, input_string)
-
-    return result
-
-def input_highlight(prompt):
-    sys.stdout.write(Fore.LIGHTBLUE_EX + Style.BRIGHT + prompt + Style.RESET_ALL)
-    sys.stdout.flush()
-    txt = input()
-
-    return txt
-
-def prompts(name, description):
-    def decorator(func):
-        func.name = name
-        func.description = description
-        return func
-    
-    return decorator
-
-def get_new_image_name(org_img_name, func_name="update"):
-    head_tail = os.path.split(org_img_name)
-    head = head_tail[0]
-    tail = head_tail[1]
-    name_split = tail.split('.')[0].split('_')
-    this_new_uuid = str(uuid.uuid4())[:4]
-    recent_prev_file_name = name_split[0]
-    new_file_name = f'{this_new_uuid}_{func_name}_{recent_prev_file_name}.png'.replace('__', '_')
-
-    return os.path.join(head, new_file_name)
 
 class EdgeDetection:
     def __init__(self, device):
@@ -183,7 +59,8 @@ class EdgeDetection:
              description="useful when you want to detect the edge of the remote sensing image. "
                          "like: detect the edges of this image, or canny detection on image, "
                          "or perform edge detection on this image, or detect the  edge of this image. "
-                         "The input to this tool should be a string, representing the image_path")
+                         "The input to this tool should be a string, representing the image_path"
+            )
     def inference(self, inputs):
         global updated_image_path
         updated_image_path = get_new_image_name(inputs, func_name="edge")
@@ -200,7 +77,8 @@ class ObjectCounting:
              description="useful when you want to count the number of the  object in the image. "
                          "like: how many ships are there in the image? or count the number of bridges"
                          "The input to this tool should be a comma separated string of two, "
-                         "representing the image_path, the text description of the object to be counted Must be Arabic numerals")
+                         "representing the image_path, the text description of the object to be counted Must be Arabic numerals"
+            )
     
     def inference(self, inputs):
         # image_path, det_prompt = inputs.split(",")
@@ -223,16 +101,6 @@ class InstanceSegmentation:
                          "or predict the ship in this image, or extract tennis court from this image, segment harbor from this image, Extract the vehicle in the image. "
                          "The input to this tool should be a comma separated string of two, "
                          "representing the image_path, the text of the category,selected from plane, or ship, or storage tank, or baseball diamond, or tennis court, or basketball court, or ground track field, or harbor, or bridge, or vehicle, or helicopter, or roundabout, or soccer ball field, or  swimming pool. "
-            
-            # description="当您想要对图像进行人造实例分割时，这个工具非常有用。预期的输入类别包括飞机、船/船只、存储罐、棒球场、网球场、篮球场、田径场、港口、桥梁、车辆、直升机、环形交叉路口、足球场和游泳池。"
-            #             "例如：从这张图像提取船，"
-            #             "或者预测这张图像中的船只，"
-            #             "或者从这张图像提取网球场，"
-            #             "或者分割这张图像中的港口，"
-            #             "从这张图像提取车辆。"
-            #             "这个工具的输入应该是一个逗号分隔的字符串，代表图像路径和类别文本，"
-            #             "从飞机、船只、存储罐、棒球场、网球场、篮球场、田径场、港口、桥梁、车辆、直升机、环形交叉路口、足球场和游泳池中选择。"
-
             )
     def inference(self, inputs):
         global updated_image_path
@@ -252,7 +120,8 @@ class SceneClassification:
              description="useful when you want to know the type of scene or function for the image. "
                          "like: what is the category of this image? "
                          "or classify the scene of this image, or predict the scene category of this image, or what is the function of this image. "
-                         "The input to this tool should be a string, representing the image_path. ")
+                         "The input to this tool should be a string, representing the image_path. "
+            )
     def inference(self, inputs):
         # output_txt = self.func.inference(inputs)
         output_txt = self.func.inference(inputs.split('\n')[0])
@@ -269,15 +138,8 @@ class LandUseSegmentation:
                          "or predict the landuse on this image, or extract building from this image, segment roads from this image, Extract the water bodies in the image. "
                          "The input to this tool should be a comma separated string of two, "
                          "representing the image_path, the text of the category,selected from Lnad Use, or Building, or Road, or Water, or Barren, or Forest, or Farmland, or Landuse."
-    
-            # description="当您想要对图像进行土地使用分割时，这个工具非常有用。预期的输入类别包括建筑、道路、水、荒地、森林、农田和土地使用。"
-            #             "例如：从这张图像生成土地使用图，"
-            #             "或者在这张图像上预测土地使用，"
-            #             "或者从这张图像提取建筑，从这张图像分割道路，"
-            #             "从这张图像提取水体。"
-            #             "这个工具的输入应该是一个逗号分隔的字符串，代表图像路径和类别文本，"
-            #             "从土地使用、建筑、道路、水、荒地、森林、农田和土地使用中选择。"
-        )
+
+            )
     def inference(self, inputs):
         global updated_image_path
         image_path, det_prompt = process_inputs(inputs)
@@ -321,22 +183,12 @@ class FireDetection:
                          "representing the image_path, the text description of the fire to be found. "
             )
     
-    # def inference(self, inputs):
-    #     global updated_image_path
-
-    #     image_path, det_prompt = process_inputs(inputs)
-
-    #     updated_image_path = get_new_image_name(image_path, func_name="fire_detection_" + det_prompt.replace(' ', '_'))
-    #     log_text = self.func.inference(image_path, det_prompt, updated_image_path)
-    #     return log_text
-    
     def inference(self, inputs):
         # output_txt = self.func.inference(inputs)
         global updated_image_path
         updated_image_path = get_new_image_name(image_path, func_name="fire_detection_" + det_prompt.replace(' ', '_'))
-
         output_txt = self.func.inference(inputs.split('\n')[0], updated_image_path)
-        print('fire_detection', output_txt)
+        
         return output_txt
     
 
@@ -348,7 +200,8 @@ class ImageCaptioning:
 
     @prompts(name="Get Photo Description",
              description="useful when you want to know what is inside the photo. receives image_path as input. "
-                         "The input to this tool should be a string, representing the image_path. ")
+                         "The input to this tool should be a string, representing the image_path. "
+            )
     def inference(self, image_path):
         captions = self.func.inference(image_path.split('\n')[0])
 
@@ -410,7 +263,7 @@ class RSChat:
             verbose=True,
             memory=self.memory,
             return_intermediate_steps=True, 
-            max_iter=5,
+            max_iter=3,
             allow_delegation=False,
             stop=["\nObservation:", "\n\tObservation:"],
             agent_kwargs={'prefix': PREFIX, 'format_instructions': FORMAT_INSTRUCTIONS, 'suffix': SUFFIX,}, 
@@ -444,7 +297,7 @@ class RSChat:
               f"Current Memory: {self.agent.memory.buffer}")
         return state
     
-    def run_text_det(self, text, state):
+    def run_text_step(self, text, state):
         try:
             res = self.agent({"input": text.strip()})
             res['output'] = res['output'].replace("\\", "/")
@@ -479,54 +332,6 @@ class RSChat:
         # print(f"\nProcessed run_text, Input text: {text}\nCurrent state: {state}\n"
         #       f"Current Memory: {self.agent.memory.buffer}")
         return state, intermediate_step_list, observations
-
-    def run_image(self, image_dir, language, state, txt=None):
-        folder_name = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-        folder_path = os.path.join('image', folder_name) 
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-        
-        image_filename = os.path.join(folder_path, f"{str(uuid.uuid4())[:8]}.png")
-        img = io.imread(image_dir)
-        width, height = img.shape[1],img.shape[0]
-        ratio = min(4096 / width, 4096 / height)
-
-        if ratio < 1:
-            width_new, height_new = (round(width * ratio), round(height * ratio))
-        else:
-            width_new, height_new =width,height 
-        width_new = int(np.round(width_new / 64.0)) * 64
-        height_new = int(np.round(height_new / 64.0)) * 64
-        
-        if width_new!=width or height_new!=height:
-            img = cv2.resize(img,(width_new, height_new))
-            print(f"======>Auto Resizing Image from {height,width} to {height_new,width_new}...")
-        else:
-            print(f"======>Auto Renaming Image...")
-        io.imsave(image_filename, img.astype(np.uint8))
-        description = self.models['ImageCaptioning'].inference(image_filename)
-        
-        if language == 'English':
-            Human_prompt = f' Provide a remote sensing image named {image_filename}. The description is: {description}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\".'
-            AI_prompt = "Received."
-        else:
-            Human_prompt = f' 提供一张遥感图片名为 {image_filename} 。它的英文描述是: {description}。 这些信息帮助你理解这个图像，但是你应该使用工具来完成以下的任务，而不是直接从英文描述中想象。 如果你明白了, 说 \"收到\". \n'
-            AI_prompt = "收到。"
-
-        self.memory.chat_memory.add_user_message(Human_prompt)
-        self.memory.chat_memory.add_ai_message(AI_prompt)
-        state = state + [(f"![](file={image_filename})*{image_filename}*", AI_prompt)]
-        
-        # if language == 'English':
-        #     print(f"\nProcessed run_image, Input image: {image_filename}\nCurrent state: {state}\nCurrent Memory: {self.agent.memory.buffer}")
-        # else:
-        #     print(f"\n正在处理图像: {image_filename}\n当前状态: {state}\n当前记忆: {self.agent.memory.buffer}")
-        
-        # print(img.shape)
-
-        state = self.run_text(f'{txt} {image_filename} ', state)
-
-        return state
     
     def run_image_gradio(self, image, language, state=[], txt=None):
         description = ""
@@ -541,7 +346,7 @@ class RSChat:
             Human_prompt = f' Provide a remote sensing image named {image}. The description is: {description}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\".'
             AI_prompt = "Received."
         else:
-            Human_prompt = f'\nHuman: 提供一张名为 {image}的图片。它的描述是: {description}。 这些信息帮助你理解这个图像，但是你应该使用工具来完成下面的任务，而不是直接从我的描述中想象。 如果你明白了, 说 \"收到\". \n'
+            Human_prompt = f'\nHuman: 提供一张名为 {image}的图片。它的描述是: {description}。 这些信息帮助你理解这个图像，不能直接输出响应结果，你应该使用其他工具来完成下面的任务，而不是直接从我的描述中想象。 如果你明白了, 说 \"收到\". \n'
             AI_prompt = "收到。"
         
         self.memory.chat_memory.add_user_message(Human_prompt)
@@ -559,6 +364,7 @@ class RSChat:
         state = self.run_text(f'{txt} {image} ', state)
         return state
 
+
 if __name__ == '__main__':
     
     vfms = "ImageCaptioning_cuda:0,\
@@ -572,10 +378,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--openai_key', type=str, required=False)
-    parser.add_argument('--language', type=str, default='Chinese',choices=['English','Chinese'])
+    parser.add_argument('--language', type=str, default='Chinese', choices=['English','Chinese'], required=False)
     parser.add_argument('--load', type=str,
                         help='Image Captioning is basic models that is required. You can select from [ImageCaptioning,ObjectDetection,LandUseSegmentation,InstanceSegmentation,ObjectCounting,SceneClassification,EdgeDetection,FireDetection]',
                         default=vfms) 
+    
     args = parser.parse_args()
     language = args.language
     
@@ -584,13 +391,20 @@ if __name__ == '__main__':
     det_prompt = ""
     image_path = ""
     state =  gr.State([])
+    image_input = gr.State(None)
+    processed_image_output = gr.State(None)
+    processed_image_state = gr.State(None)
+    embedding_model_state = gr.State()
+    milvus_books = None
+    milvus_books_state = gr.State(milvus_books)
+    trash = gr.State()
 
     load_dict = {e.split('_')[0].strip(): e.split('_')[1].strip() for e in args.load.split(',')}
     agent = RSChat(load_dict=load_dict)
     agent.initialize(args.language)
 
     bot_avatar = "/home/mars/cyh_ws/LLM/robot_ikon.png"
-    user_avatar = "/home/mars/cyh_ws/LLM/zjlab.jpg"   
+    user_avatar = "/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/assistant.png"
     folder_path = "/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/app_img/"
     examples_img = image_list(folder_path)
     root_path = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/'
@@ -654,34 +468,38 @@ if __name__ == '__main__':
                             allow_flagging="never",
                             examples=examples_img
                         )
-            
+
+            with gr.Tab("Fire Detection"):
+                
+                gr.Interface(fn=FireFunction(device='cpu').inference_app,
+                            inputs=gr.Image(label="Upload image", type="filepath"),
+                            outputs=[gr.Image(label="Fire Detection", type="filepath"), gr.Textbox(label="Imgae Shape", type="text")],
+                            title="Fire Detection",
+                            description="Fire Detection remote-sensing image using the Vit model",
+                            allow_flagging="never",
+                            examples=examples_img
+                        )
+                
+
         with gr.Accordion("RS-Agent with LLM"):
+
             # lang = gr.Radio(choices=['Chinese', 'English'], value=None,label='Language')
-            image_input = gr.State(None)
-            processed_image_output = gr.State(None)
-            processed_image_state = gr.State(None)
-            # processed_image_output = gr.State(None)
-            # chatbot = gr.State(None)
             
             examples_img_list = [i.split(',') for i in examples_img]
             with gr.Row():
                 with gr.Column(scale=1): 
                     image_input = gr.Image(type="filepath", label="上传图像")
-                    # examples=image_list(folder_path)
                     submit_img_button = gr.Button("上传图像")
                                         
                 with gr.Column(scale=1):
-                    # chatbot_display = chatbot
                     processed_image_output = gr.Image(type="filepath", label="图像解析")
-
-
                     # processed_image_state = gr.Textbox(image_input, label="处理后的图像信息")
-                       
+                    
             examples = gr.Examples(examples_img_list, image_input, label="遥感图像示例")
 
             with gr.Row():
                 chatbot = gr.Chatbot(
-                    value=[[None, "你好，我是【之江天绘】智能遥感图像助手🤖，有什么我可以帮助你的吗？可以上传图片🖼️并进行提问！"]],
+                    value=[[None, "你好，我是【之江天绘】智能遥感图像助手🤖，有什么我可以帮助你的吗？可以先上传图片🖼️，再进行提问！"]],
                     placeholder="<strong>🤖 RS-Agent</strong><br> assist with a wide range of remote sensing image related tasks",
                     label="RS-Agent",
                     height=600,
@@ -693,8 +511,8 @@ if __name__ == '__main__':
             with gr.Row() as input_raw:
                 # btn = gr.UploadButton(label="🖼️",file_types=["image"], scale=0.05)
                 msg = gr.Textbox(interactive=True, lines=1, show_label=False, placeholder="输入您的指令, 可通过Shift+回车⏎换行", scale=3.95)
-                submit_button = gr.Button("Submit")
-                clear = gr.Button("Clear")
+                submit_button = gr.Button("发送")
+                clear = gr.Button("刷新")
             
             def user(user_message, history):
                 user_message = user_message.replace("\n", "")
@@ -710,19 +528,8 @@ if __name__ == '__main__':
                     # history[-1][1] = image_input
                     global processed_image
                     processed_image = image_format(image_input)
-                    current_state = agent.run_image_gradio(processed_image, args.language, [], message)
-                    observation_pattern = re.compile(r".*?(image.*?\.png)")
-                    # for j in range(len(thought_process[0])):
-                    #     for i in range(3):
-                    #         history[-1][1] = history[-1][1] + thought_process[i][j] + "\n"
-                    #     if j < len(observations) or history[-1][1] is not None:
-                    #         history[-1][1] = history[-1][1] + "💭Observation " + str(j) + ": " + observations[j] + "\n"
-                    #         match = observation_pattern.search(observations[j])
-                    #         if match:
-                    #             out_img = match.group(1)
-                    #     history += [[None, None]]
-                    #     history[-1][1] = ''
-                    
+                    current_state = agent.run_image_gradio(processed_image, args.language, [], message)                    
+                  
                     if is_image(updated_image_path):
                         out_img = updated_image_path
                     else:
@@ -731,12 +538,6 @@ if __name__ == '__main__':
                     # final_thought = "\n" + "🧠之江天绘遥感智能体:\n" + current_state[1][1]
                     final_thought = "\n" + current_state[1][1]
 
-                    # if count_num != None:
-                    #     final_thought = replace_all_numbers(final_thought, count_num) 
-                    #     print(f'\033[1m\033[36m {final_thought}\033[0m')
-                    # else:
-                    #     print(f'\033[1m\033[36m {final_thought}\033[0m')
-
                     history[-1][1] = final_thought
                     updated_image_path = ""
                     if out_img == "":
@@ -744,7 +545,7 @@ if __name__ == '__main__':
                 else:
                     # gr.Warning("Warning! Please upload an image first.", duration=5)
                     response = agent.run_no_image(message, history)
-                    history[-1][1] = response[-1][1] + '\n`💡提示：可以上传图片🖼️，并对图片进行提问🤔`' + '\n 或者可以问我有什么功能🛠️'
+                    history[-1][1] = response[-1][1] + '\n`💡提示：可以上传图片🖼️，并对图片进行提问🤔，也可以让我介绍一下功能`'
                     out_img = None
             
                 return history, out_img
@@ -756,19 +557,20 @@ if __name__ == '__main__':
             msg.submit(lambda: "", None, msg)
             # response.then(lambda: gr.update(interactive=True), None, [msg], queue=False)
             
-            submit_img_button.click(user, [image_input, chatbot], [msg, chatbot], queue=False).then(
+            submit_img_button.click(pre_embeding_file, inputs=[chatbot], outputs=[chatbot]).then(
                 bot, [image_input, msg, chatbot], [chatbot, processed_image_output])
             submit_img_button.click(lambda: "", None, msg)
             submit_img_button.click(agent.memory.clear)
 
-            submit_button.click(user, [image_input, chatbot], [msg, chatbot], queue=False).then(
-                bot, [image_input, msg, chatbot], [chatbot, processed_image_output])            
+            submit_button.click(user, [msg, chatbot], [msg, chatbot], queue=False).then(
+                bot, [image_input, msg, chatbot], [chatbot, processed_image_output]   
+            )     
+            
             submit_button.click(agent.memory.clear)
             submit_button.click(lambda: "", None, msg)
-           
+            
             clear.click(agent.memory.clear)
             clear.click(lambda: None, None, chatbot, queue=False)
-            # clear.click(lambda: [], None, state)
             clear.click(lambda: None, None, image_input, queue=False)
             clear.click(lambda: None, None, processed_image_output, queue=False)
             clear.click(lambda:None, "", updated_image_path)
@@ -776,4 +578,4 @@ if __name__ == '__main__':
     
     gr.close_all()
     demo.queue()
-    demo.launch(share=True, server_name="0.0.0.0", server_port=8080)
+    demo.launch(share=True, server_name="0.0.0.0", server_port=8088)

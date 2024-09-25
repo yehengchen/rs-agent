@@ -1,3 +1,4 @@
+import sys
 from RStask.ObjectDetection.models.common import DetectMultiBackend
 import torch
 from torchvision import transforms
@@ -13,7 +14,8 @@ class YoloDetection:
             self.model = DetectMultiBackend('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False, fp16=False)
         except:
             self.model = DetectMultiBackend('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False,fp16=False)
-        self.category = ['small vehicle', 'large vehicle', 'plane', 'storage tank', 'ship', 'harbor',
+        
+        self.category = ['car', 'truck', 'plane', 'storage tank', 'ship', 'harbor',
                          'ground track field',
                          'soccer ball field', 'tennis court', 'swimming pool', 'baseball diamond', 'roundabout',
                          'basketball court', 'bridge', 'helicopter']
@@ -24,6 +26,7 @@ class YoloDetection:
         #                         '篮球场', '桥', '直升机']
         
     def inference(self, image_path, det_prompt,updated_image_path):
+        supported_class=False
         image = torch.from_numpy(io.imread(image_path))
         image = image.permute(2, 0, 1).unsqueeze(0) / 255.0
         _, _, h, w = image.shape
@@ -39,10 +42,18 @@ class YoloDetection:
         log_text = ''
         for i in range(len(self.category)):
             if (detection_classes == i).sum() > 0 and (
-                    self.category[i] == det_prompt or self.category[i] == det_prompt[:-1] or self.category[
-                i] == det_prompt[:-3]):
+                    self.category[i] == det_prompt or self.category[i] == det_prompt[:-1] or self.category[i] == det_prompt[:-3]):
                 log_text += str((detection_classes == i).sum()) + ' ' + self.category[i] + ','
-        
+            
+            if self.category[i] == det_prompt or self.category[i] == det_prompt[:-1] or self.category[i] == det_prompt[:-3]:
+                supported_class=True
+                break
+
+        if supported_class is False:
+            log_text=det_prompt+' is not a supported category for the model.'
+            print(f"\nProcessed Object Counting, Input Image: {image_path}, Output text: {log_text}")
+            return log_text
+            
         if log_text != '':
             log_text = 'Object Counting Tool：' + log_text[:-1] + ' detected.'
         else:

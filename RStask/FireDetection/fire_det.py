@@ -47,6 +47,35 @@ parser.add_argument("--output_path", type=str,
 parser.add_argument("--savename", type=str, default='Fire_detec_1024_v2.pt', help="save file name")
 args = parser.parse_args()
 
+
+
+# # 定义变量
+# learning_rate = 2e-5
+# opt_eps = None
+# beta1 = 0.99
+# beta2 = 0.99
+# eps = 1e-6
+# momentum = 0.9
+# weight_decay = 2e-5
+# warmup = 500
+# batch_size = 64
+# epoches = 50
+# output = './output'
+# vit_model = './Vit_weights/imagenet21k+imagenet2012_ViT-B_16-224.pth'
+# load = False
+# image_size = 224
+# num_classes = 2
+# patch_size = 16
+# emb_dim = 768
+# mlp_dim = 3072
+# num_heads = 12
+# num_layers = 12
+# attn_dropout_rate = 0.0
+# dropout_rate = 0.1
+# output_path = './checkpoints'
+# savename = 'Fire_detec_1024_v2.pt'
+
+
 data_transform = transforms.Compose([
     # transforms.CenterCrop(224),
     transforms.Resize((224, 224)),
@@ -93,8 +122,8 @@ class FireDetection:
         
         prob_arr.extend(predict.detach().cpu().numpy())
         # npyfilename = 'fire_prob.npy'
-        np.save('./fire_prob.npy', prob_arr)
-        data = np.load('./fire_prob.npy')
+        np.save('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy', prob_arr)
+        data = np.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy')
 
 
         if predict[predict_cla].numpy() <0.5:
@@ -129,7 +158,7 @@ class FireDetection:
         prob = str(torch.round(predict[predict_cla] * 10000).item() / 100)
 
         if class_indict[str(predict_cla)] == 'Fire':
-            red_mask = Image.new('RGB', im.size, (200, 0, 0))
+            red_mask = Image.new('RGB', im.size, (250, 128, 114))
             red_mask = np.array(red_mask)
             # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
             red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
@@ -137,7 +166,7 @@ class FireDetection:
             text = '  the probability of a fire is {}%, fire！'.format(prob)
         
         else:
-            red_mask = Image.new('RGB', im.size, (255, 255, 255))
+            red_mask = Image.new('RGB', im.size, (189, 252, 201))
             red_mask = np.array(red_mask)
             # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
             red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
@@ -170,6 +199,90 @@ class FireDetection:
 
         # return  det_prompt+' fire detection result in '+updated_image_path
         return output_txt + text
+
+
+
+    def inference_app(self, image_path, output_path):
+
+            # assert os.path.exists(image_path), "file: '{}' dose not exist.".format(image_path)
+            img = Image.open(image_path).convert('RGB')
+            img = data_transform(img)
+
+            img = torch.unsqueeze(img, dim=0).to(self.device)
+            prob_arr = []
+            with torch.no_grad():
+                # predict class
+                output = torch.squeeze(self.model(img.to(self.device, non_blocking=True))).cpu()
+                # predict = torch.softmax(output, dim=0)
+                predict = torch.nn.functional.softmax(output, dim=0)
+
+                predict_cla = torch.argmax(predict).numpy()
+            
+            prob_arr.extend(predict.detach().cpu().numpy())
+            # npyfilename = 'fire_prob.npy'
+            np.save('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy', prob_arr)
+            data = np.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy')
+
+
+            if predict[predict_cla].numpy() <0.5:
+                print_res = "class: {}   prob: {:.3}".format('no match',
+                                                            predict[predict_cla].numpy())
+            else:
+                print_res = "class: {}   prob: {:.3}".format(class_indict[str(predict_cla)],
+                                                        predict[predict_cla].numpy())
+
+            im = Image.open(image_path)
+            x = data_transform(im).to(self.device)
+
+            att_mat = self.model(x.unsqueeze(0))
+            # att_mat = torch.stack(att_mat).squeeze(1)
+            att_mat = torch.stack([att_mat]).squeeze(1).to(self.device)
+            att_mat = torch.mean(att_mat, dim=1)
+
+            residual_att = torch.eye(att_mat.size(-1)).to(self.device)
+            aug_att_mat = att_mat + residual_att
+            aug_att_mat = aug_att_mat / aug_att_mat.sum(dim=-1).unsqueeze(-1)
+            # Recursively multiply the weight matrices
+            joint_attentions = torch.zeros(aug_att_mat.size())
+            joint_attentions[0] = aug_att_mat[0]
+
+            for n in range(1, aug_att_mat.size(0)):
+                joint_attentions[n] = torch.matmul(aug_att_mat[n], joint_attentions[n-1])
+            v = joint_attentions[-1]
+            grid_size = int(np.sqrt(aug_att_mat.size(-1)))
+            
+            mask = v[0].reshape(grid_size, grid_size).detach().numpy()
+            mask = cv2.resize(mask / mask.max(), im.size)[..., np.newaxis]
+            prob = str(torch.round(predict[predict_cla] * 10000).item() / 100)
+
+            if class_indict[str(predict_cla)] == 'Fire':
+                red_mask = Image.new('RGB', im.size, (250, 128, 114))
+                red_mask = np.array(red_mask)
+                # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
+                red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
+                result = (red_mask * im).astype("uint8")
+                text = '  the probability of a fire is {}%, fire！'.format(prob)
+            
+            else:
+                red_mask = Image.new('RGB', im.size, (189, 252, 201))
+                red_mask = np.array(red_mask)
+                # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
+                red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
+                result = (red_mask * im).astype("uint8")
+                text = ' the probability of a fire is {}%, no fire.'.format(100.0 - float(prob))
+
+            print("Prediction Label and Attention Map!\n")
+
+            # Image.fromarray(result).save(updated_image_path)
+            # print(
+            #         f"\nProcessed Fire Detection, Input Image: {image_path}, Output Fire Detection Result: {updated_image_path},Output text: {'Fire Detection Done'}")
+
+            Image.fromarray(result.astype(np.uint8)).save(output_path)
+
+            output_txt = image_path + ' has ' + prob +  '% probability of ' + '{:.3}'.format(class_indict[str(predict_cla)]) + '.'
+
+            # return  det_prompt+' fire detection result in '+updated_image_path
+            return result, output_txt + text
 
 # if __name__ == '__main__':
 #     FireDetection(device='cuda:0').inference(det_prompt='Fire detection result in ', image_path="/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/colorado1024/1526.tif", updated_image_path="/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/colorado1024/1526_fire.png")

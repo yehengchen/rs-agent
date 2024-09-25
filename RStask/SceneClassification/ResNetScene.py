@@ -28,16 +28,19 @@ class ResNetAID:
 
     def inference(self, inputs):
         image_path = inputs
-        image = torch.from_numpy(io.imread(image_path))
-        image = (image.permute(2, 0, 1).unsqueeze(0) - self.mean) / self.std
-        with torch.no_grad():
-            pred = self.model(image.to(self.device))
+        try:
+            image = torch.from_numpy(io.imread(image_path))
+            image = (image.permute(2, 0, 1).unsqueeze(0) - self.mean) / self.std
+            with torch.no_grad():
+                pred = self.model(image.to(self.device))
 
-        values, indices = torch.softmax(pred, 1).topk(2, dim=1, largest=True, sorted=True)
-        output_txt = image_path + ' has ' + str(
-            torch.round(values[0][0] * 10000).item() / 100) + '% probability being ' + list(self.all_dict.keys())[
-                         indices[0][0]] + ' and ' + str(
-            torch.round(values[0][1] * 10000).item() / 100) + '% probability being ' + list(self.all_dict.keys())[
-                         indices[0][1]]+'.'
+            values, indices = torch.softmax(pred, 1).topk(2, dim=1, largest=True, sorted=True)
+            output_txt = image_path + ' has ' + str(
+                torch.round(values[0][0] * 10000).item() / 100) + '% probability being ' + list(self.all_dict.keys())[
+                            indices[0][0]] + ' and ' + str(
+                torch.round(values[0][1] * 10000).item() / 100) + '% probability being ' + list(self.all_dict.keys())[
+                            indices[0][1]]+'.'
+        except:
+            output_txt = "Error: Image not found or not in correct format"
         print(f"\nProcessed Scene Classification, Input Image: {inputs}, Output Scene: {output_txt}")
         return output_txt

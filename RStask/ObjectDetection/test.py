@@ -1,4 +1,5 @@
-from RStask.ObjectDetection.YOLOv5 import YoloDetection
+# from RStask.ObjectDetection.YOLOv5 import YoloDetection
+from YOLOv5 import YoloDetection
 
 def run_detection(image_path ,updated_image_path):
     

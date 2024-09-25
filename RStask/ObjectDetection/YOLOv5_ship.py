@@ -201,6 +201,18 @@ class YoloDetection_ship:
             detections = detections[det_pred[:, 4] > 0.75]
             detections_box = (detections[:, :4] / (640 / h)).int().cpu().numpy()
             detection_classes = detections[:, 5].int().cpu().numpy()
+        log_text = ''
+        for i in range(len(self.category)):
+            if (detection_classes == i).sum() > 0 and (
+                    self.category[i] == det_prompt or self.category[i] == det_prompt[:-1] or self.category[
+                i] == det_prompt[:-3]):
+                log_text += str((detection_classes == i).sum()) + ' ' + self.category[i] + ','
+        
+        if log_text != '':
+            log_text = 'Object Counting Tool：' + log_text[:-1] + ' detected.'
+        else:
+            log_text = 'Object Counting Tool：' + 'No ' + self.category[i] + ' detected.'
+
         if len(detection_classes) > 0:
             det = np.zeros((h, w, 3))
             for i in range(len(detections_box)):
@@ -210,7 +222,7 @@ class YoloDetection_ship:
             self.visualize(image_path,updated_image_path,detections)
             print(
                 f"\nProcessed Object Detection, Input Image: {image_path}, Output Bounding box: {updated_image_path},Output text: {'Object Detection Done'}")
-            return  det_prompt+' object detection result in '+ updated_image_path
+            return  log_text #+' object detection result in '+ updated_image_path
     # visualize
     def visualize(self,image_path, newpic_path,detections):
         font = cv2.FONT_HERSHEY_SIMPLEX

@@ -49,9 +49,14 @@ class Unet_seg(nn.Module):
 
     def inference(self,image_path, det_prompt, updated_image_path):
         det_prompt=det_prompt.strip()
-        or_image = io.imread(image_path)
-        image = torch.from_numpy(io.imread(image_path))
-        image = (image.permute(2, 0, 1).unsqueeze(0) - self.mean) / self.std
+        try:
+            or_image = io.imread(image_path)
+            image = torch.from_numpy(io.imread(image_path))
+            image = (image.permute(2, 0, 1).unsqueeze(0) - self.mean) / self.std
+        except:
+            print('Image format error!')
+            return ('Category ',det_prompt,' do not suuport!','The expected input category include Building, Road, Water, Barren, Forest, Farmland, Landuse.')
+        
         with torch.no_grad():
             b, c, h, w = image.shape
             pred = self.model(image.to(self.device))
