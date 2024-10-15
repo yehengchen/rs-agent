@@ -1,7 +1,5 @@
-import sys
 from RStask.ObjectDetection.models.common import DetectMultiBackend
 import torch
-from torchvision import transforms
 from skimage import io
 import numpy as np
 import torchvision
@@ -11,19 +9,13 @@ class YoloDetection:
     def __init__(self, device):
         self.device = device
         try:
-            self.model = DetectMultiBackend('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False, fp16=False)
+            self.model = DetectMultiBackend('./checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False, fp16=False)
         except:
-            self.model = DetectMultiBackend('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False,fp16=False)
-        
+            self.model = DetectMultiBackend('./checkpoints/yolov5_best.pt', device=torch.device(device), dnn=False,fp16=False)
         self.category = ['car', 'truck', 'plane', 'storage tank', 'ship', 'harbor',
                          'ground track field',
                          'soccer ball field', 'tennis court', 'swimming pool', 'baseball diamond', 'roundabout',
                          'basketball court', 'bridge', 'helicopter']
-            
-        # self.category = ['小型车辆', '大型车辆', '飞机', '存储罐', '船', '港口',
-        #                         '地面轨道场',
-        #                         '足球场', '网球场', '游泳池', '棒球场', '环岛',
-        #                         '篮球场', '桥', '直升机']
         
     def inference(self, image_path, det_prompt,updated_image_path):
         supported_class=False

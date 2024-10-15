@@ -369,12 +369,13 @@ if __name__ == '__main__':
     
     vfms = "ImageCaptioning_cuda:0,\
             SceneClassification_cuda:0,\
-            ObjectDetection_cuda:0,\
             LandUseSegmentation_cuda:0,\
             InstanceSegmentation_cuda:0,\
             EdgeDetection_cpu,\
+            ObjectDetection_cpu,\
             FireDetection_cuda:0"
-            #ObjectCounting_cuda:0,\
+            #ObjectCounting_cuda:0
+            
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--openai_key', type=str, required=False)

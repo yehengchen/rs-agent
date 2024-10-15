@@ -10,6 +10,17 @@ import numpy as np
 from osgeo import gdal
 import cv2
 
+
+data_transform = transforms.Compose([
+    # transforms.CenterCrop(224),
+    transforms.Resize((224, 224)),
+    # transforms.RandomRotation(30),
+    # transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
+    # transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
 parser = argparse.ArgumentParser()
 # Optimizer parameters
 parser.add_argument("--learning_rate", default=2e-5, type=float,
@@ -46,47 +57,8 @@ parser.add_argument("--output_path", type=str,
                     help="output path")
 parser.add_argument("--savename", type=str, default='Fire_detec_1024_v2.pt', help="save file name")
 args = parser.parse_args()
-
-
-
-# # 定义变量
-# learning_rate = 2e-5
-# opt_eps = None
-# beta1 = 0.99
-# beta2 = 0.99
-# eps = 1e-6
-# momentum = 0.9
-# weight_decay = 2e-5
-# warmup = 500
-# batch_size = 64
-# epoches = 50
-# output = './output'
-# vit_model = './Vit_weights/imagenet21k+imagenet2012_ViT-B_16-224.pth'
-# load = False
-# image_size = 224
-# num_classes = 2
-# patch_size = 16
-# emb_dim = 768
-# mlp_dim = 3072
-# num_heads = 12
-# num_layers = 12
-# attn_dropout_rate = 0.0
-# dropout_rate = 0.1
-# output_path = './checkpoints'
-# savename = 'Fire_detec_1024_v2.pt'
-
-
-data_transform = transforms.Compose([
-    # transforms.CenterCrop(224),
-    transforms.Resize((224, 224)),
-    # transforms.RandomRotation(30),
-    # transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
-    # transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-
 class FireDetection:
+
     def __init__(self, device):
         self.device = device
         self.model = DTransformer(args)
@@ -155,7 +127,8 @@ class FireDetection:
         
         mask = v[0].reshape(grid_size, grid_size).detach().numpy()
         mask = cv2.resize(mask / mask.max(), im.size)[..., np.newaxis]
-        prob = str(torch.round(predict[predict_cla] * 10000).item() / 100)
+        prob = round((torch.round(predict[predict_cla] * 10000).item() / 100), 3)
+        prob = str(prob)
 
         if class_indict[str(predict_cla)] == 'Fire':
             red_mask = Image.new('RGB', im.size, (250, 128, 114))
@@ -171,7 +144,7 @@ class FireDetection:
             # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
             red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
             result = (red_mask * im).astype("uint8")
-            text = ' the probability of a fire is {}%, no fire.'.format(100.0 - float(prob))
+            text = ' the probability of a fire is {}%, no fire.'.format(round(100.0 - float(prob), 3))
 
 
         # print(type(mask))
@@ -195,7 +168,7 @@ class FireDetection:
         # print_res = "class: {}   prob: {:.3}".format(class_indict[str(predict_cla)],predict[predict_cla].numpy())
 
 
-        output_txt = image_path + ' has ' + prob +  '% probability of ' + '{:.3}'.format(class_indict[str(predict_cla)]) + '.'
+        output_txt = image_path + ' has ' + prob +  '% probability of ' + '{}'.format(class_indict[str(predict_cla)]) + '.'
 
         # return  det_prompt+' fire detection result in '+updated_image_path
         return output_txt + text
@@ -212,12 +185,12 @@ class FireDetection:
             prob_arr = []
             with torch.no_grad():
                 # predict class
+
                 output = torch.squeeze(self.model(img.to(self.device, non_blocking=True))).cpu()
                 # predict = torch.softmax(output, dim=0)
                 predict = torch.nn.functional.softmax(output, dim=0)
 
                 predict_cla = torch.argmax(predict).numpy()
-            
             prob_arr.extend(predict.detach().cpu().numpy())
             # npyfilename = 'fire_prob.npy'
             np.save('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy', prob_arr)
@@ -253,15 +226,15 @@ class FireDetection:
             
             mask = v[0].reshape(grid_size, grid_size).detach().numpy()
             mask = cv2.resize(mask / mask.max(), im.size)[..., np.newaxis]
-            prob = str(torch.round(predict[predict_cla] * 10000).item() / 100)
-
+            prob = str(round(torch.round(predict[predict_cla] * 10000).item() / 100, 3))
+            print(prob)
             if class_indict[str(predict_cla)] == 'Fire':
                 red_mask = Image.new('RGB', im.size, (250, 128, 114))
                 red_mask = np.array(red_mask)
                 # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
                 red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
                 result = (red_mask * im).astype("uint8")
-                text = '  the probability of a fire is {}%, fire！'.format(prob)
+                text = '  the probability of a fire is {}%., fire!'.format(prob)
             
             else:
                 red_mask = Image.new('RGB', im.size, (189, 252, 201))
@@ -279,13 +252,10 @@ class FireDetection:
 
             Image.fromarray(result.astype(np.uint8)).save(output_path)
 
-            output_txt = image_path + ' has ' + prob +  '% probability of ' + '{:.3}'.format(class_indict[str(predict_cla)]) + '.'
-
+            output_txt = image_path + ' has ' + prob +  '% probability of ' + '{}'.format(class_indict[str(predict_cla)]) + '.'
             # return  det_prompt+' fire detection result in '+updated_image_path
             return result, output_txt + text
 
 # if __name__ == '__main__':
-#     FireDetection(device='cuda:0').inference(det_prompt='Fire detection result in ', image_path="/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/colorado1024/1526.tif", updated_image_path="/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/colorado1024/1526_fire.png")
 
-
-
+    # FireDetection(device='cuda:0').inference(det_prompt='Fire detection result in ', image_path="/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/colorado1024/1526.tif", updated_image_path="/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/colorado1024/1526_fire.png")

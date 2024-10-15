@@ -17,17 +17,21 @@ class RS_BLIP:
 
 
     def inference(self, image_path):
-        inputs = self.processor(Image.open(image_path), return_tensors="pt").to(self.device, self.torch_dtype)
-        out = self.model.generate(**inputs)
-        captions = 'A satellite image of ' + self.processor.decode(out[0], skip_special_tokens=True)
-        # captions = 'A satellite image of many ships in port of Singapore.'
+        try:
+            inputs = self.processor(Image.open(image_path), return_tensors="pt").to(self.device, self.torch_dtype)
+            out = self.model.generate(**inputs)
+            captions = 'A satellite image of ' + self.processor.decode(out[0], skip_special_tokens=True)
+            # captions = 'A satellite image of many ships in port of Singapore.'
 
-        # captions = 'A satellite image of basketball court near by zhejiang lab.'
-        # captions = 'A satellite image of bridge near by zhejiang lab.'
-        # captions = 'A satellite image of ​​farmland near by zhejiang lab.'
-        # captions = '这张遥感图像显示了之江实验室附近有农田。'
+            # captions = 'A satellite image of basketball court near by zhejiang lab.'
+            # captions = 'A satellite image of bridge near by zhejiang lab.'
+            # captions = 'A satellite image of ​​farmland near by zhejiang lab.'
+            # captions = '这张遥感图像显示了之江实验室附近有农田。'
 
-        print(f"\nProcessed ImageCaptioning, Input Image: {image_path}, Output Text: {captions}")
+            print(f"\nProcessed ImageCaptioning, Input Image: {image_path}, Output Text: {captions}")
+        except Exception as e:
+            print(f"Error in ImageCaptioning: {e}")
+            captions = 'Error: Image not found or not in correct format'
         return captions
     
     def inference_app(self, raw_image):
