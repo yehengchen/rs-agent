@@ -9,9 +9,9 @@ class SwinInstance:
         self.model = SwinUPer()
         self.device = device
         try:
-            trained = torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/last_swint_upernet_finetune.pth')
+            trained = torch.load('./checkpoints/last_swint_upernet_finetune.pth')
         except:
-            trained = torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/last_swint_upernet_finetune.pth')
+            trained = torch.load('./checkpoints/last_swint_upernet_finetune.pth')
         self.model.load_state_dict(trained["state_dict"])
         self.model = self.model.to(device)
         self.model.eval()

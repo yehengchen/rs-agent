@@ -445,9 +445,9 @@ class HRNet48(nn.Module):
         self.model=hrmodel()
         self.device = device
         try:
-            trained = torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/HRNET_LoveDA_best.pth')
+            trained = torch.load('./checkpoints/HRNET_LoveDA_best.pth')
         except:
-            trained = torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/HRNET_LoveDA_best.pth')
+            trained = torch.load('./checkpoints/HRNET_LoveDA_best.pth')
         self.load_state_dict(trained)
         self.model = self.model.to(device)
         self.model.eval()

@@ -25,10 +25,12 @@ class Unet_seg(nn.Module):
         super(Unet_seg, self).__init__()
         self.model=unet(n_channels=3, n_classes=6)
         self.device = device
-        self.model.load_state_dict(torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/unet_3ch_GID_5_seg.pt'))
+        self.model.load_state_dict(torch.load('./checkpoints/unet_3ch_GID_5_seg_1028.pt'))
         self.model.float().eval().to(device)
 
-        self.category = ['building','farmland', 'forest', 'meadow', 'water', 'ignored']
+        # self.category = ['building','farmland', 'forest', 'meadow', 'water', 'ignored']
+        self.category = ['ignored-up','building', 'farmland', 'forest', 'water', 'meadow']
+
         self.color_bar=[[255, 0, 0],[0, 255, 0],[0, 255, 255],[255, 255, 0],[0, 0, 255],[0, 0, 0]]
         self.mean, self.std = torch.tensor([123.675, 116.28, 103.53]).reshape((1, 3, 1, 1)), torch.tensor(
             [58.395, 57.12, 57.375]).reshape((1, 3, 1, 1))
@@ -52,7 +54,8 @@ class Unet_seg(nn.Module):
         try:
             or_image = io.imread(image_path)
             image = torch.from_numpy(io.imread(image_path))
-            image = (image.permute(2, 0, 1).unsqueeze(0) - self.mean) / self.std
+            image = (image.permute(2, 0, 1).unsqueeze(0)) / 255
+            # image = (image.permute(2, 0, 1).unsqueeze(0) - self.mean) / self.std
         except:
             print('Image format error!')
             return ('Category ',det_prompt,' do not suuport!','The expected input category include Building, Road, Water, Barren, Forest, Farmland, Landuse.')

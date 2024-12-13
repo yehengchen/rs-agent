@@ -174,16 +174,16 @@ class YoloDetection_ship:
         #        'Expressway-Service-area', 'stadium', 'airport', 'baseballfield', 'bridge', 'windmill', 'overpass']
         
         self.det_model = yolov5s(num_classes=len(self.category), slice=False)
-        self.det_model.load_state_dict(torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/v5s_ship.pt')['model'].state_dict())
-        # self.det_model.load_state_dict(torch.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/yolov5s-dior.pt')['model'].state_dict())
+        self.det_model.load_state_dict(torch.load('./checkpoints/v5s_ship.pt')['model'].state_dict())
+        # self.det_model.load_state_dict(torch.load('./checkpoints/yolov5s-dior.pt')['model'].state_dict())
 
         self.det_model.float().fuse().eval().to(self.device)
     # def __init__(self, device):
         # self.device = device
         # try:
-        #     self.model = DetectMultiBackend('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/v5s_ship.pt', device=torch.device(device), dnn=False, fp16=False)
+        #     self.model = DetectMultiBackend('./checkpoints/v5s_ship.pt', device=torch.device(device), dnn=False, fp16=False)
         # except:
-        #     self.model = DetectMultiBackend('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/v5s_ship.pt', device=torch.device(device), dnn=False,fp16=False)
+        #     self.model = DetectMultiBackend('./checkpoints/v5s_ship.pt', device=torch.device(device), dnn=False,fp16=False)
         # self.category = ["ship"]
 
     def inference(self, image_path, det_prompt,updated_image_path):

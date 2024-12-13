@@ -18,50 +18,55 @@ class YoloDetection:
                          'basketball court', 'bridge', 'helicopter']
         
     def inference(self, image_path, det_prompt,updated_image_path):
-        supported_class=False
-        image = torch.from_numpy(io.imread(image_path))
-        image = image.permute(2, 0, 1).unsqueeze(0) / 255.0
-        _, _, h, w = image.shape
-        with torch.no_grad():
-            out, _ = self.model(image.to(self.device), augment=False,val=True)
-            predn = self.non_max_suppression(out, conf_thres=0.001, iou_thres=0.75, labels=[], multi_label=True,
-                                             agnostic=False)[0]
-            detections = predn.clone()
-            detections = detections[predn[:, 4] > 0.75]
-            detections_box = (detections[:, :4] / (640 / h)).int().cpu().numpy()
-            detection_classes = detections[:, 5].int().cpu().numpy()
+        try:
+            supported_class=False
+            image = torch.from_numpy(io.imread(image_path))
+            image = image.permute(2, 0, 1).unsqueeze(0) / 255.0
+            _, _, h, w = image.shape
+            with torch.no_grad():
+                out, _ = self.model(image.to(self.device), augment=False,val=True)
+                predn = self.non_max_suppression(out, conf_thres=0.001, iou_thres=0.75, labels=[], multi_label=True,
+                                                agnostic=False)[0]
+                detections = predn.clone()
+                detections = detections[predn[:, 4] > 0.75]
+                detections_box = (detections[:, :4] / (640 / h)).int().cpu().numpy()
+                detection_classes = detections[:, 5].int().cpu().numpy()
+            
+            log_text = ''
+            for i in range(len(self.category)):
+                if (detection_classes == i).sum() > 0 and (
+                        self.category[i] == det_prompt or self.category[i] == det_prompt[:-1] or self.category[i] == det_prompt[:-3]):
+                    log_text += str((detection_classes == i).sum()) + ' ' + self.category[i] + ','
+                
+                if self.category[i] == det_prompt or self.category[i] == det_prompt[:-1] or self.category[i] == det_prompt[:-3]:
+                    supported_class=True
+                    break
+
+            if supported_class is False:
+                log_text=det_prompt+' is not a supported category for the model.'
+                print(f"\nProcessed Object Counting, Input Image: {image_path}, Output text: {log_text}")
+                return log_text
+                
+            if log_text != '':
+                log_text = 'Object Counting Tool：' + log_text[:-1] + ' detected.'
+            else:
+                log_text = 'Object Counting Tool：' + 'No ' + self.category[i] + ' detected.'
+
+            if len(detection_classes) > 0:
+                det = np.zeros((h, w, 3))
+                for i in range(len(detections_box)):
+                    x1, y1, x2, y2 = detections_box[i]
+                    det[y1:y2, x1:x2] = detection_classes[i] + 1
+
+                self.visualize(image_path,updated_image_path,detections)
+                print(
+                    f"\nProcessed Object Detection, Input Image: {image_path}, Output Bounding box: {updated_image_path},Output text: {'Object Detection Done'}")
         
-        log_text = ''
-        for i in range(len(self.category)):
-            if (detection_classes == i).sum() > 0 and (
-                    self.category[i] == det_prompt or self.category[i] == det_prompt[:-1] or self.category[i] == det_prompt[:-3]):
-                log_text += str((detection_classes == i).sum()) + ' ' + self.category[i] + ','
-            
-            if self.category[i] == det_prompt or self.category[i] == det_prompt[:-1] or self.category[i] == det_prompt[:-3]:
-                supported_class=True
-                break
+        except Exception as e:
+            print(f"Error in ImageCaptioning: {e}")
+            captions = 'Error: Image not found or not in correct format'            
 
-        if supported_class is False:
-            log_text=det_prompt+' is not a supported category for the model.'
-            print(f"\nProcessed Object Counting, Input Image: {image_path}, Output text: {log_text}")
-            return log_text
-            
-        if log_text != '':
-            log_text = 'Object Counting Tool：' + log_text[:-1] + ' detected.'
-        else:
-            log_text = 'Object Counting Tool：' + 'No ' + self.category[i] + ' detected.'
-
-        if len(detection_classes) > 0:
-            det = np.zeros((h, w, 3))
-            for i in range(len(detections_box)):
-                x1, y1, x2, y2 = detections_box[i]
-                det[y1:y2, x1:x2] = detection_classes[i] + 1
-
-            self.visualize(image_path,updated_image_path,detections)
-            print(
-                f"\nProcessed Object Detection, Input Image: {image_path}, Output Bounding box: {updated_image_path},Output text: {'Object Detection Done'}")
-
-            return  log_text #+' object detection result in '+updated_image_path
+        return  log_text #+' object detection result in '+updated_image_path
         
 
     def visualize(self,image_path, newpic_path, detections):

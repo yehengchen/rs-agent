@@ -8,9 +8,9 @@ class ResNetAID:
         self.model = models.resnet34(pretrained=False, num_classes=30)
         self.device = device
         try:
-            trained = torch.load("/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/Res34_AID_best.pth")
+            trained = torch.load("./checkpoints/Res34_AID_best.pth")
         except:
-            trained = torch.load("/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/Res34_AID_best.pth")
+            trained = torch.load("./checkpoints/Res34_AID_best.pth")
 
         self.model.load_state_dict(trained)
         self.model = self.model.to(device)

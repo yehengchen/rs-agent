@@ -10,11 +10,9 @@ class RS_BLIP:
     def __init__(self, device):
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        self.model_path = '/home/mars/cyh_ws/LLM/models/rs-blip/' 
+        self.model_path = './checkpoints/rs-blip' 
         self.processor = BlipProcessor.from_pretrained(self.model_path)
         self.model = BlipForConditionalGeneration.from_pretrained(self.model_path, torch_dtype=self.torch_dtype).to(self.device)
-    
-
 
     def inference(self, image_path):
         try:

@@ -13,6 +13,7 @@ from model_define import DTransformer
 import numpy as np
 from osgeo import gdal
 import cv2
+import time
 
 data_transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -40,7 +41,7 @@ class FireDetection:
 
         
     def inference(self, image_path, output_path):
-    
+
         img = Image.open(image_path).convert('RGB')
         img = data_transform(img)
         img = torch.unsqueeze(img, dim=0).to(self.device)
@@ -55,7 +56,7 @@ class FireDetection:
         
         prob_arr.extend(predict.detach().cpu().numpy())
         np.save('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy', prob_arr)
-        data = np.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy')
+        # data = np.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy')
 
 
         if predict[predict_cla].numpy() <0.5:
@@ -118,87 +119,100 @@ class FireDetection:
 
 
     def inference_app(self, input_folder, output_folder):
+
         if not os.path.exists(output_folder):
                 os.makedirs(output_folder)
         
         for filename in os.listdir(input_folder):
             if filename.lower().endswith(('.tif','png','.jpg','.jpeg')):
                 print(filename)
+                start_time = time.time()  # 获取当前时间
 
                 image_path = os.path.join(input_folder, filename)
-                img = Image.open(image_path).convert('RGB')
-                img = data_transform(img)
+                try:
+                    img = Image.open(image_path).convert('RGB')
+                    img = data_transform(img)
 
-                img = torch.unsqueeze(img, dim=0).to(self.device)
-                prob_arr = []
-                with torch.no_grad():
-                    # predict class
-                    output = torch.squeeze(self.model(img.to(self.device, non_blocking=True))).cpu()
-                    predict = torch.nn.functional.softmax(output, dim=0)
+                    img = torch.unsqueeze(img, dim=0).to(self.device)
+                    prob_arr = []
+                    with torch.no_grad():
+                        # predict class
+                        output = torch.squeeze(self.model(img.to(self.device, non_blocking=True))).cpu()
+                        predict = torch.nn.functional.softmax(output, dim=0)
 
-                    predict_cla = torch.argmax(predict).numpy()
-                
-                prob_arr.extend(predict.detach().cpu().numpy())
-                # npyfilename = 'fire_prob.npy'
-                np.save('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy', prob_arr)
-                data = np.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy')
+                        predict_cla = torch.argmax(predict).numpy()
+                    
+                    prob_arr.extend(predict.detach().cpu().numpy())
+                    # npyfilename = 'fire_prob.npy'
+                    np.save('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy', prob_arr)
+                    # data = np.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy')
 
 
-                if predict[predict_cla].numpy() <0.5:
-                    print_res = "class: {}   prob: {:.3}".format('no match',
+                    if predict[predict_cla].numpy() <0.5:
+                        print_res = "class: {}   prob: {:.3}".format('no match',
+                                                                    predict[predict_cla].numpy())
+                    else:
+                        print_res = "class: {}   prob: {:.3}".format(class_indict[str(predict_cla)],
                                                                 predict[predict_cla].numpy())
-                else:
-                    print_res = "class: {}   prob: {:.3}".format(class_indict[str(predict_cla)],
-                                                            predict[predict_cla].numpy())
 
-                im = Image.open(image_path)
-                x = data_transform(im).to(self.device)
+                    im = Image.open(image_path)
+                    x = data_transform(im).to(self.device)
 
-                att_mat = self.model(x.unsqueeze(0))
-                # att_mat = torch.stack(att_mat).squeeze(1)
-                att_mat = torch.stack([att_mat]).squeeze(1).to(self.device)
-                att_mat = torch.mean(att_mat, dim=1)
+                    att_mat = self.model(x.unsqueeze(0))
+                    # att_mat = torch.stack(att_mat).squeeze(1)
+                    att_mat = torch.stack([att_mat]).squeeze(1).to(self.device)
+                    att_mat = torch.mean(att_mat, dim=1)
 
-                residual_att = torch.eye(att_mat.size(-1)).to(self.device)
-                aug_att_mat = att_mat + residual_att
-                aug_att_mat = aug_att_mat / aug_att_mat.sum(dim=-1).unsqueeze(-1)
-                # Recursively multiply the weight matrices
-                joint_attentions = torch.zeros(aug_att_mat.size())
-                joint_attentions[0] = aug_att_mat[0]
+                    residual_att = torch.eye(att_mat.size(-1)).to(self.device)
+                    aug_att_mat = att_mat + residual_att
+                    aug_att_mat = aug_att_mat / aug_att_mat.sum(dim=-1).unsqueeze(-1)
+                    # Recursively multiply the weight matrices
+                    joint_attentions = torch.zeros(aug_att_mat.size())
+                    joint_attentions[0] = aug_att_mat[0]
 
-                for n in range(1, aug_att_mat.size(0)):
-                    joint_attentions[n] = torch.matmul(aug_att_mat[n], joint_attentions[n-1])
-                v = joint_attentions[-1]
-                grid_size = int(np.sqrt(aug_att_mat.size(-1)))
-                
-                mask = v[0].reshape(grid_size, grid_size).detach().numpy()
-                mask = cv2.resize(mask / mask.max(), im.size)[..., np.newaxis]
-                prob = round((torch.round(predict[predict_cla] * 10000).item() / 100), 3)
-                prob =  str(prob)
-                if class_indict[str(predict_cla)] == 'Fire':
-                    red_mask = Image.new('RGB', im.size, (250, 128, 114))
-                    red_mask = np.array(red_mask)
-                    # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
-                    red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
-                    result = (red_mask * im).astype("uint8")
-                    text = '  the probability of a fire is {}%, fire.'.format(prob)
-                
-                else:
-                    red_mask = Image.new('RGB', im.size, (189, 252, 201))
-                    red_mask = np.array(red_mask)
-                    # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
-                    red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
-                    result = (red_mask * im).astype("uint8")
-                    text = ' the probability of a fire is {}%, no fire.'.format(100.0 - float(prob))
+                    for n in range(1, aug_att_mat.size(0)):
+                        joint_attentions[n] = torch.matmul(aug_att_mat[n], joint_attentions[n-1])
+                    v = joint_attentions[-1]
+                    grid_size = int(np.sqrt(aug_att_mat.size(-1)))
+                    
+                    mask = v[0].reshape(grid_size, grid_size).detach().numpy()
+                    mask = cv2.resize(mask / mask.max(), im.size)[..., np.newaxis]
+                    prob = round((torch.round(predict[predict_cla] * 10000).item() / 100), 3)
+                    prob_str =  str(prob)
+                    if class_indict[str(predict_cla)] == 'Fire':
+                        red_mask = Image.new('RGB', im.size, (250, 128, 114))
+                        red_mask = np.array(red_mask)
+                        # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
+                        red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
+                        # prob_array = np.array([int(prob/100 * 255)])
+                        # red_mask = (red_mask * prob_array).astype("uint8")
+                        result = (red_mask * im).astype("uint8")
+                        text = '  the probability of a fire is {}%, fire.'.format(prob)
+                    
+                    else:
+                        red_mask = Image.new('RGB', im.size, (189, 252, 201))
+                        red_mask = np.array(red_mask)
+                        # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
+                        red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
+                        # prob_array = np.array([int(prob/100 * 255)])
+                        # red_mask = (red_mask * prob_array).astype("uint8")
+                        result = (red_mask * im).astype("uint8")
 
-                print("Prediction Label and Attention Map!\n")
+                        text = ' the probability of a fire is {}%, no fire.'.format(100.0 - float(prob))
+                    
+                    print("Prediction Label and Attention Map!\n")
 
-                output_path = os.path.join(output_folder, filename)
-                Image.fromarray(result.astype(np.uint8)).save(output_path)
+                    output_path = os.path.join(output_folder, filename)
+                    Image.fromarray(result.astype(np.uint8)).save(output_path)
 
-                output_txt = image_path + ' has ' + prob +  '% probability of ' + '{}'.format(class_indict[str(predict_cla)]) + '.\n'
-                print(output_txt)
-
+                    output_txt = image_path + ' has ' + prob_str +  '% probability of ' + '{}'.format(class_indict[str(predict_cla)]) + '.\n'
+                    print(output_txt)
+                    end_time = time.time()  # 获取当前时间
+                    elapsed_time = end_time - start_time  # 计算耗时
+                    print("耗时：", elapsed_time, "秒")
+                except:
+                    print("Error in processing image:", filename)
+                    continue
         return result, output_txt
 
 
@@ -240,12 +254,12 @@ if __name__ == '__main__':
     parser.add_argument("--savename", type=str, default='Fire_detec_1024_v2.pt', help="save file name")
     args = parser.parse_args()
 
-    input_folder = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/app_img'
+    input_folder = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/colorado1024'
     output_folder = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/color_result1024'
     input_image = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/app_img/2012.png'
     output_image = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/2012_rls.png'
     model_path = "/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/Fire_detec_1024_v2.pt"
-    
     FireDetection(device='cuda').inference_app(input_folder = input_folder, output_folder = output_folder)
-    FireDetection(device='cuda').inference(input_folder = input_image, output_folder = output_image)
+
+    # FireDetection(device='cuda').inference(input_folder = input_image, output_folder = output_image)
 

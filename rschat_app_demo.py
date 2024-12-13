@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore")
 import logging
 
 from colorama import Fore, Back, Style
-from LLM import LLaMA3_LLM, LLaMA3_1_LLM, Qwen2_LLM
+from LLM import LLaMA3_LLM, LLaMA3_1_LLM, Qwen2_LLM, Qwen2_5_LLM
 # from langchain.chat_models import ChatOpenAI
 from langchain.agents.initialize import initialize_agent
 from langchain.agents.tools import Tool
@@ -36,13 +36,11 @@ from langchain_community.vectorstores import Milvus
 from RStask.ObjectDetection.models.yolov5s import *
 from RStask.LanduseSegmentation.unet import *
 from RStask.FireDetection.fire_det import *
-
 from Prefix import RS_CHATGPT_PREFIX, RS_CHATGPT_FORMAT_INSTRUCTIONS, RS_CHATGPT_SUFFIX, RS_CHATGPT_PREFIX_CN, RS_CHATGPT_FORMAT_INSTRUCTIONS_CN, RS_CHATGPT_SUFFIX_CN, VISUAL_CHATGPT_PREFIX_CN, VISUAL_CHATGPT_FORMAT_INSTRUCTIONS_CN, VISUAL_CHATGPT_SUFFIX_CN
 from RStask import ImageEdgeFunction, CaptionFunction, LanduseFunction, LanduseFunction_Unet, DetectionFunction, DetectionFunction_ship, CountingFuncnction, \
     CountingFuncnction_ship, SceneFunction, InstanceFunction, CaptionFunction_RS_BLIP, CaptionFunction3, FireFunction
 import gradio as gr
-
-from process_data import *
+from data.process_data import *
 
 os.environ['GRADIO_TEMP_DIR'] = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/tmp'
 os.makedirs('image', exist_ok=True)
@@ -183,11 +181,11 @@ class FireDetection:
                          "representing the image_path, the text description of the fire to be found. "
             )
     
-    def inference(self, inputs):
+    def inference(self, image_path):
         # output_txt = self.func.inference(inputs)
         global updated_image_path
         updated_image_path = get_new_image_name(image_path, func_name="fire_detection_" + det_prompt.replace(' ', '_'))
-        output_txt = self.func.inference(inputs.split('\n')[0], updated_image_path)
+        output_txt = self.func.inference(image_path.split('\n')[0], updated_image_path)
         
         return output_txt
     
@@ -235,8 +233,10 @@ class RSChat:
                     func = getattr(instance, e)
                     self.tools.append(Tool(name=func.name, description=func.description, func=func))
 
-        # self.llm = LLaMA3_LLM(mode_name_or_path="/home/zjlab/Llama-3-8B-Chinese")
+        # self.llm = LLaMA3_1_LLM(mode_name_or_path="/home/mars/cyh_ws/LLM/models/Llama3.1-8B-Chinese-Chat")
         self.llm = Qwen2_LLM(mode_name_or_path="/home/mars/cyh_ws/LLM/models/Qwen2-7B-Instruct")
+        # self.llm = Qwen2_5_LLM(mode_name_or_path="/home/mars/cyh_ws/LLM/models/Qwen-2.5-7B-Instruct")
+
         # self.llm = LLaMA3_1_LLM(mode_name_or_path="/home/mars/cyh_ws/LLM/models/Llama3.1-8B-Chinese-Chat")
 
         self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='output', return_messages=True)
@@ -337,11 +337,8 @@ class RSChat:
         description = ""
         
         # global description
-        if description == "":
-            description = self.models['ImageCaptioning'].inference(image)
-        else:
-            print(description)
-        # print(description)
+        description = self.models['ImageCaptioning'].inference(image)
+
         if language == 'English':
             Human_prompt = f' Provide a remote sensing image named {image}. The description is: {description}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\".'
             AI_prompt = "Received."
@@ -411,7 +408,6 @@ if __name__ == '__main__':
     root_path = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/'
 
     with gr.Blocks(css="#chatbot .overflow-y-auto{height:500px} img {max-height: 100% !important}", theme = gr.themes.Default(text_size='lg')) as demo:
-
         gr.Markdown(
         """
 
@@ -483,9 +479,7 @@ if __name__ == '__main__':
                 
 
         with gr.Accordion("RS-Agent with LLM"):
-
             # lang = gr.Radio(choices=['Chinese', 'English'], value=None,label='Language')
-            
             examples_img_list = [i.split(',') for i in examples_img]
             with gr.Row():
                 with gr.Column(scale=1): 
@@ -499,8 +493,14 @@ if __name__ == '__main__':
             examples = gr.Examples(examples_img_list, image_input, label="遥感图像示例")
 
             with gr.Row():
+                
+                if language == 'Chinese':
+                    chat_value = [[None, "你好，我是【之江天绘】智能遥感图像助手🤖，有什么我可以帮助你的吗？可以先上传图片🖼️，再进行提问！"]]
+                if language == 'English':
+                    chat_value = [[None, "Hi, I am the Zhejiang Tianhui intelligent assistant🤖, what can I help you with? You can upload a picture🖼️ first, and then ask questions!"]]
+                
                 chatbot = gr.Chatbot(
-                    value=[[None, "你好，我是【之江天绘】智能遥感图像助手🤖，有什么我可以帮助你的吗？可以先上传图片🖼️，再进行提问！"]],
+                    value=chat_value,
                     placeholder="<strong>🤖 RS-Agent</strong><br> assist with a wide range of remote sensing image related tasks",
                     label="RS-Agent",
                     height=600,
@@ -546,7 +546,10 @@ if __name__ == '__main__':
                 else:
                     # gr.Warning("Warning! Please upload an image first.", duration=5)
                     response = agent.run_no_image(message, history)
-                    history[-1][1] = response[-1][1] + '\n`💡提示：可以上传图片🖼️，并对图片进行提问🤔，也可以让我介绍一下功能`'
+                    if language == "English":
+                        history[-1][1] = response[-1][1] + '\n`💡Tip: You can upload an image 🖼️ and ask questions 🤔 about it, or let me introduce the tools.`'
+                    else:
+                        history[-1][1] = response[-1][1] + '\n`💡提示：可以上传图片🖼️，并对图片进行提问🤔，也可以让我介绍一下功能`'
                     out_img = None
             
                 return history, out_img
@@ -579,4 +582,4 @@ if __name__ == '__main__':
     
     gr.close_all()
     demo.queue()
-    demo.launch(share=True, server_name="0.0.0.0", server_port=8088)
+    demo.launch(share=True, server_name="0.0.0.0", server_port=5001)

@@ -13,7 +13,7 @@ def run_classification(image_path):
 
 if __name__ == "__main__":
 
-    image_path = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/image/rs-ship.jpg'
+    image_path = '../image/rs-ship.jpg'
     total_params = run_classification(image_path)
     # print(cls_rslt)
     print(f"\nModel Parameters: {total_params / 1000000000:.2f} B")

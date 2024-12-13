@@ -2,24 +2,21 @@ import os
 import sys
 import re
 import uuid
-import argparse
-import inspect
 import cv2
 import time
-import torch
 import numpy as np
-import yaml
-import random
-import pandas as pd
-# import PyPDF2
-from tqdm import tqdm
 from skimage import io
 import warnings
 warnings.filterwarnings("ignore")
 import logging
 
 def pre_embeding_file(chatbot):
-    message = "图像上传成功，正在处理中，请耐心等待..."
+    language = 'Chinese'
+    if language == "English":
+        message = "Image uploaded successfully, processing, please wait ..."
+    else:
+        message = "图像上传成功，正在处理中，请耐心等待..."
+
     return chatbot + [[message, None]]
 
 def applydata_(chatbot):  
@@ -93,9 +90,11 @@ def process_inputs(inputs):
     global image_path, det_prompt
     pattern = r"(^image[^,]*),\s+([^\n]*)\n"
     match = re.search(pattern, inputs)
-    
-    image_path = inputs.split(",")[0].strip()
-    det_prompt = inputs.split(",")[1].strip()
+    try:
+        image_path = inputs.split(",")[0].strip()
+        det_prompt = inputs.split(",")[1].strip()
+    except IndexError as e:
+        print(f"Error: {e}")
 
     path_match = re.search(r'image_path=(image/[\w.]+)', image_path)
     

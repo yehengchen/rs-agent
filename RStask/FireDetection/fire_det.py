@@ -58,17 +58,16 @@ parser.add_argument("--output_path", type=str,
 parser.add_argument("--savename", type=str, default='Fire_detec_1024_v2.pt', help="save file name")
 args = parser.parse_args()
 class FireDetection:
-
     def __init__(self, device):
         self.device = device
         self.model = DTransformer(args)
         self.model.to(device)
         # load model weights
-        model_weight_path = "/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/checkpoints/Fire_detec_1024_v2.pt"
+        model_weight_path = "./checkpoints/Fire_detec_1024_v2.pt"
         self.model.load_state_dict(torch.load(model_weight_path, map_location=lambda storage, loc: storage))
         self.model.eval()
 
-        json_path = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/class_indices.json'
+        json_path = './RStask/FireDetection/class_indices.json'
         assert os.path.exists(json_path), "file: '{}' dose not exist.".format(json_path)
 
         json_file = open(json_path, "r")
@@ -94,8 +93,8 @@ class FireDetection:
         
         prob_arr.extend(predict.detach().cpu().numpy())
         # npyfilename = 'fire_prob.npy'
-        np.save('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy', prob_arr)
-        data = np.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy')
+        np.save('./RStask/FireDetection/fire_prob.npy', prob_arr)
+        data = np.load('./RStask/FireDetection/fire_prob.npy')
 
 
         if predict[predict_cla].numpy() <0.5:
@@ -136,7 +135,7 @@ class FireDetection:
             # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
             red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
             result = (red_mask * im).astype("uint8")
-            text = '  the probability of a fire is {}%, fire！'.format(prob)
+            text = 'The probability of a fire is {}%,fire broke out!'.format(prob)
         
         else:
             red_mask = Image.new('RGB', im.size, (189, 252, 201))
@@ -144,7 +143,7 @@ class FireDetection:
             # red_mask = v[0].reshape(grid_size, grid_size).detach().numpy()
             red_mask = cv2.resize(red_mask / red_mask.max(), im.size)
             result = (red_mask * im).astype("uint8")
-            text = ' the probability of a fire is {}%, no fire.'.format(round(100.0 - float(prob), 3))
+            text = 'The probability of a fire is {}%,no fire found.'.format(round(100.0 - float(prob), 3))
 
 
         # print(type(mask))
@@ -158,12 +157,12 @@ class FireDetection:
 
         # probs = torch.nn.Softmax(dim=-1)(logits)
         # top5 = torch.argsort(probs, dim=-1, descending=True)
-        print("Prediction Label and Attention Map!\n")
+        # print("\nPrediction Label and Attention Map!")
 
         # Image.fromarray(result).save(updated_image_path)
         # print(
         #         f"\nProcessed Fire Detection, Input Image: {image_path}, Output Fire Detection Result: {updated_image_path},Output text: {'Fire Detection Done'}")
-
+        
         Image.fromarray(result.astype(np.uint8)).save(output_path)
         # print_res = "class: {}   prob: {:.3}".format(class_indict[str(predict_cla)],predict[predict_cla].numpy())
 
@@ -193,8 +192,8 @@ class FireDetection:
                 predict_cla = torch.argmax(predict).numpy()
             prob_arr.extend(predict.detach().cpu().numpy())
             # npyfilename = 'fire_prob.npy'
-            np.save('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy', prob_arr)
-            data = np.load('/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/RStask/FireDetection/fire_prob.npy')
+            np.save('./RStask/FireDetection/fire_prob.npy', prob_arr)
+            data = np.load('./RStask/FireDetection/fire_prob.npy')
 
 
             if predict[predict_cla].numpy() <0.5:

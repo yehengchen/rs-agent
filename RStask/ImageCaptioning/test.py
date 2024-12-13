@@ -44,7 +44,7 @@ class RS_BLIP:
 
 if __name__ == '__main__':
     rs_blip = RS_BLIP('cuda')
-    image_path = '/home/mars/cyh_ws/LLM/Remote-Sensing-Chat/8a59_fire_detection_.png'
+    image_path = './8a59_fire_detection_.png'
     rs_blip.inference(image_path)
     # print(f"\nModel Parameters: {rs_blip.count_parameters()}")
     total_params = rs_blip.count_parameters()
