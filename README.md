@@ -1,7 +1,6 @@
-# RS-Chat: Solving Remote Sensing Tasks with LLM and Visual Models
-Introduction
+# RS-TA: Remote Sensing Task Agents via LLM and VLMs to solve complex problems in remote sensing
+## Introduction
 ----
-
 
 ### Updates
 - [2024.07.05]: 
@@ -26,14 +25,9 @@ Introduction
 pip install -r requirements.txt
 ```
 
-### Run
-```
-python rschat.py --image_dir ./image/rs-ship.jpg --language English
-```
-
 ### Run Gradio app
 ```
-python python rschat_app_demo.py
+python rschat_app_demo.py
 ```
 
 
