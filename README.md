@@ -1,5 +1,7 @@
-# RS-TA: Remote Sensing Task Agents via LLM and VLMs to solve complex problems in remote sensing
+# RS-TA: Remote Sensing Task Agents via LLM and VFMs
 ## Introduction
+This repository introduces an innovative remote sensing task agent powered by LLM and VFMs. 
+It's designed to understand remote sensing image commons and efficiently solve complex tasks.
 ----
 
 ### Updates
