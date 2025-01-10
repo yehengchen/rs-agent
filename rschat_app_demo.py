@@ -495,7 +495,7 @@ if __name__ == '__main__':
             with gr.Row():
                 
                 if language == 'Chinese':
-                    chat_value = [[None, "你好，我是【之江天绘】智能遥感图像助手🤖，有什么我可以帮助你的吗？可以先上传图片🖼️，再进行提问！"]]
+                    chat_value = [[None, "你好，我是【天绘】智能遥感图像助手🤖，有什么我可以帮助你的吗？可以先上传图片🖼️，再进行提问！"]]
                 if language == 'English':
                     chat_value = [[None, "Hi, I am the Zhejiang Tianhui intelligent assistant🤖, what can I help you with? You can upload a picture🖼️ first, and then ask questions!"]]
                 
@@ -536,7 +536,7 @@ if __name__ == '__main__':
                     else:
                         out_img = ""
 
-                    # final_thought = "\n" + "🧠之江天绘遥感智能体:\n" + current_state[1][1]
+                    # final_thought = "\n" + "🧠天绘遥感智能体:\n" + current_state[1][1]
                     final_thought = "\n" + current_state[1][1]
 
                     history[-1][1] = final_thought
